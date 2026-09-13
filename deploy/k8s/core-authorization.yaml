@@ -1,0 +1,120 @@
+# Miqaat Core Identity Authorization Service - EKS manifests (reference).
+# Internal service: no public ingress. Reached by Identity Federation and BU backends only.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: core-authorization
+  namespace: miqaat-authz
+---
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: core-authorization-env
+  namespace: miqaat-authz
+spec:
+  refreshInterval: 1h
+  secretStoreRef: { name: aws-secrets-manager, kind: ClusterSecretStore }
+  target: { name: core-authorization-env }
+  data:
+    - { secretKey: AUTHZ_DB_PASSWORD, remoteRef: { key: miqaat/authz/prod/authz-db, property: password } }
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: core-authorization-config
+  namespace: miqaat-authz
+data:
+  NODE_ENV: production
+  PORT: "3002"
+  LOG_LEVEL: info
+  TRUST_PROXY: "true"
+  SWAGGER_ENABLED: "false"
+  AUTHZ_DB_HOST: miqaat-authz.cluster-xxxx.<REGION>.rds.amazonaws.com
+  AUTHZ_DB_PORT: "5432"
+  AUTHZ_DB_USER: core_authorization
+  AUTHZ_DB_NAME: miqaat_authz
+  AUTHZ_DB_SSL: "true"
+  REDIS_URL: rediss://miqaat-authz.xxxx.cache.amazonaws.com:6379/0
+  EFFECTIVE_PERMISSION_CACHE_TTL_SECONDS: "60"
+  ALLOW_INSECURE_LOCALHOST_URIS: "false"
+  AUDIT_ALLOW_DECISIONS: "false"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: core-authorization
+  namespace: miqaat-authz
+  labels: { app: core-authorization }
+spec:
+  replicas: 3
+  strategy: { type: RollingUpdate, rollingUpdate: { maxUnavailable: 0, maxSurge: 1 } }
+  selector: { matchLabels: { app: core-authorization } }
+  template:
+    metadata:
+      labels: { app: core-authorization }
+    spec:
+      serviceAccountName: core-authorization
+      securityContext: { runAsNonRoot: true, seccompProfile: { type: RuntimeDefault } }
+      initContainers:
+        - name: migrate
+          image: <ACCOUNT_ID>.dkr.ecr.<REGION>.amazonaws.com/miqaat-core-authorization:1.0.0
+          command: ["node", "node_modules/typeorm/cli.js", "migration:run", "-d", "dist/core/database/data-source.js"]
+          envFrom: [{ configMapRef: { name: core-authorization-config } }, { secretRef: { name: core-authorization-env } }]
+      containers:
+        - name: app
+          image: <ACCOUNT_ID>.dkr.ecr.<REGION>.amazonaws.com/miqaat-core-authorization:1.0.0
+          ports: [{ containerPort: 3002, name: http }]
+          envFrom: [{ configMapRef: { name: core-authorization-config } }, { secretRef: { name: core-authorization-env } }]
+          resources:
+            requests: { cpu: 250m, memory: 256Mi }
+            limits: { cpu: "1", memory: 512Mi }
+          readinessProbe: { httpGet: { path: /health/ready, port: http }, periodSeconds: 10 }
+          livenessProbe: { httpGet: { path: /health, port: http }, periodSeconds: 15 }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: ["ALL"] }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: core-authorization
+  namespace: miqaat-authz
+spec:
+  selector: { app: core-authorization }
+  ports: [{ port: 3002, targetPort: http, name: http }]
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: core-authorization
+  namespace: miqaat-authz
+spec:
+  scaleTargetRef: { apiVersion: apps/v1, kind: Deployment, name: core-authorization }
+  minReplicas: 3
+  maxReplicas: 10
+  metrics:
+    - { type: Resource, resource: { name: cpu, target: { type: Utilization, averageUtilization: 65 } } }
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: core-authorization
+  namespace: miqaat-authz
+spec:
+  minAvailable: 2
+  selector: { matchLabels: { app: core-authorization } }
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: core-authorization
+  namespace: miqaat-authz
+spec:
+  podSelector: { matchLabels: { app: core-authorization } }
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: miqaat-identity } }
+        - namespaceSelector: { matchLabels: { miqaat.com/bu-backend: "true" } }
+      ports: [{ port: 3002 }]

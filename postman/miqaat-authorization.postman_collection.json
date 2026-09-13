@@ -1,0 +1,2241 @@
+{
+  "info": {
+    "name": "Miqaat Core Identity Authorization",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "## Tokens (no API keys)\nEvery request inherits `Bearer {{access_token}}`. Sign in with the *Miqaat Identity Federation* collection (folder **1. Sign in**): its select-scope requests store the globals `access_token` (audience authorization, CORE workspace) and `identity_access_token` (audience identity). Tokens last about 10 minutes; re-run select-scope on `401`.\nService-token folders need a single-use `client-authentication+jwt` signed by the calling principal (`federation_service_token`, `bu_service_token`).\n\n## Run order for onboarding\nOrganisation → Applications → Roles & permissions → Clients (create, origins, callbacks, SECURITY_REVIEW, ACTIVE, Apply in Identity) → Users & assignments. Create requests store `tenant_id`, `bu_id`, `utility_id`, `role_id` and `client_id` for the requests after them.\n\n## Status values\nClients: `PENDING → SECURITY_REVIEW → ACTIVE ⇄ SUSPENDED → RETIRED` (RETIRED is permanent). Tenants, business units, utilities, applications: `active` | `inactive`. Users: `active` | `inactive` | `suspended`. Roles have no status."
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{access_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "authz",
+      "value": "http://localhost:3002"
+    },
+    {
+      "key": "identity",
+      "value": "http://localhost:3001"
+    },
+    {
+      "key": "its_id",
+      "value": "31189012",
+      "description": "User to create / manage"
+    },
+    {
+      "key": "client_id",
+      "value": "rms-web-dev",
+      "description": "Create client sets it to the new client"
+    },
+    {
+      "key": "app_code",
+      "value": "hbs"
+    },
+    {
+      "key": "origin",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "callback_uri",
+      "value": "http://localhost:3000/auth/core/callback"
+    },
+    {
+      "key": "tenant_id",
+      "value": ""
+    },
+    {
+      "key": "bu_id",
+      "value": ""
+    },
+    {
+      "key": "utility_id",
+      "value": ""
+    },
+    {
+      "key": "role_id",
+      "value": ""
+    },
+    {
+      "key": "federation_service_token",
+      "value": "",
+      "description": "single-use service token signed by identity-federation"
+    },
+    {
+      "key": "bu_service_token",
+      "value": "",
+      "description": "single-use service token signed by a BU backend key (e.g. rms-backend)"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP ' + pm.response.code, () => pm.expect(pm.response.code).to.be.below(400));",
+              "if (pm.response.code >= 400) console.log(pm.response.text());"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{authz}}/health",
+        "auth": {
+          "type": "noauth"
+        }
+      }
+    },
+    {
+      "name": "Readiness",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP ' + pm.response.code, () => pm.expect(pm.response.code).to.be.below(400));",
+              "if (pm.response.code >= 400) console.log(pm.response.text());"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{authz}}/health/ready",
+        "auth": {
+          "type": "noauth"
+        }
+      }
+    },
+    {
+      "name": "Me (workspace)",
+      "description": "",
+      "item": [
+        {
+          "name": "My workspaces",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP ' + pm.response.code, () => pm.expect(pm.response.code).to.be.below(400));",
+                  "if (pm.response.code >= 400) console.log(pm.response.text());"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{authz}}/me/assignments",
+            "description": "Works before a workspace is selected."
+          }
+        },
+        {
+          "name": "Active workspace",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP ' + pm.response.code, () => pm.expect(pm.response.code).to.be.below(400));",
+                  "if (pm.response.code >= 400) console.log(pm.response.text());"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{authz}}/me"
+          }
+        },
+        {
+          "name": "Permissions of the active workspace",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP ' + pm.response.code, () => pm.expect(pm.response.code).to.be.below(400));",
+                  "if (pm.response.code >= 400) console.log(pm.response.text());"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{authz}}/me/permissions",
+            "description": "{ MODULE_CODE: [actions] }; a missing key means the module is hidden."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Organisation",
+      "description": "Status: active | inactive. Tenants need CORE; business units BUSINESS_UNIT_MGMT; utilities UTILITY_MGMT; environments CONFIGURATION (create needs CORE).",
+      "item": [
+        {
+          "name": "List tenants (CORE)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP ' + pm.response.code, () => pm.expect(pm.response.code).to.be.below(400));",
+                  "if (pm.response.code >= 400) console.log(pm.response.text());"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{authz}}/tenants"
+          }
+        },
+        {
+          "name": "Create tenant (CORE)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP ' + pm.response.code, () => pm.expect(pm.response.code).to.be.below(400));",
+                  "if (pm.response.code >= 400) console.log(pm.response.text());",
+                  "const b = pm.response.code < 400 ? pm.response.json() : {};",
+                  "if (b.tenant_id) { pm.collectionVariables.set('tenant_id', b.tenant_id); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{authz}}/tenants",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Miqaat Test Tenant\",\n  \"status\": \"active\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Deactivate tenant",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP ' + pm.response.code, () => pm.expect(pm.response.code).to.be.below(400));",
+                  "if (pm.response.code >= 400) console.log(pm.response.text());"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{authz}}/tenants/{{tenant_id}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"inactive\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Activate tenant",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP ' + pm.response.code, () => pm.expect(pm.response.code).to.be.below(400));",
+                  "if (pm.response.code >= 400) console.log(pm.response.text());"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{authz}}/tenants/{{tenant_id}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"active\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "List business units",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP ' + pm.response.code, () => pm.expect(pm.response.code).to.be.below(400));",
+                  "if (pm.response.code >= 400) console.log(pm.response.text());"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{authz}}/business-units?status=active"
+          }
+        },
+        {
+          "name": "Create business unit",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP ' + pm.response.code, () => pm.expect(pm.response.code).to.be.below(400));",
+                  "if (pm.response.code >= 400) console.log(pm.response.text());",
+                  "const b = pm.response.code < 400 ? pm.response.json() : {};",
+                  "if (b.bu_id) { pm.collectionVariables.set('bu_id', b.bu_id); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{authz}}/business-units",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Hall Services\",\n  \"status\": \"active\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Rename business unit",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP ' + pm.response.code, () => pm.expect(pm.response.code).to.be.below(400));",
+                  "if (pm.response.code >= 400) console.log(pm.response.text());"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{authz}}/business-units/{{bu_id}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Hall Services Dept\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Deactivate business unit",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP ' + pm.response.code, () => pm.expect(pm.response.code).to.be.below(400));",
+                  "if (pm.response.code >= 400) console.log(pm.response.text());"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{authz}}/business-units/{{bu_id}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"inactive\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Activate business unit",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP ' + pm.response.code, () => pm.expect(pm.response.code).to.be.below(400));",
+                  "if (pm.response.code >= 400) console.log(pm.response.text());"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{authz}}/business-units/{{bu_id}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"active\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "List utilities",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP ' + pm.response.code, () => pm.expect(pm.response.code).to.be.below(400));",
+                  "if (pm.response.code >= 400) console.log(pm.response.text());"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{authz}}/utilities?bu_id={{bu_id}}"
+          }
+        },
+        {
+          "name": "Create utility",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP ' + pm.response.code, () => pm.expect(pm.response.code).to.be.below(400));",
+                  "if (pm.response.code >= 400) console.log(pm.response.text());",
+                  "const b = pm.response.code < 400 ? pm.response.json() : {};",
+                  "if (b.utility_id) { pm.collectionVariables.set('utility_id', b.utility_id); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{authz}}/utilities",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bu_id\": \"{{bu_id}}\",\n  \"name\": \"Hall Booking\",\n  \"status\": \"active\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Rename utility",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP ' + pm.response.code, () => pm.expect(pm.response.code).to.be.below(400));",
+                  "if (pm.response.code >= 400) console.log(pm.response.text());"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{authz}}/utilities/{{utility_id}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Hall Booking Desk\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Deactivate utility",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP ' + pm.response.code, () => pm.expect(pm.response.code).to.be.below(400));",
+                  "if (pm.response.code >= 400) console.log(pm.response.text());"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{authz}}/utilities/{{utility_id}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"inactive\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Activate utility",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP ' + pm.response.code, () => pm.expect(pm.response.code).to.be.below(400));",
+                  "if (pm.response.code >= 400) console.log(pm.response.text());"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{authz}}/utilities/{{utility_id}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"active\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "List environments",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP ' + pm.response.code, () => pm.expect(pm.response.code).to.be.below(400));",
+                  "if (pm.response.code >= 400) console.log(pm.response.text());"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{authz}}/environments"
+          }
+        },
+        {
+          "name": "Create environment (CORE)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP ' + pm.response.code, () => pm.expect(pm.response.code).to.be.below(400));",
+                  "if (pm.response.code >= 400) console.log(pm.response.text());"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{authz}}/environments",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"UAT\",\n  \"name\": \"User Acceptance Testing\",\n  \"is_production\": false,\n  \"sort_order\": 2\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Applications",
+      "description": "CONFIGURATION view to list; CORE + CONFIGURATION edit to create. Status is set on create (no update endpoint).",
+      "item": [
+        {
+          "name": "List applications",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP ' + pm.response.code, () => pm.expect(pm.response.code).to.be.below(400));",
+                  "if (pm.response.code >= 400) console.log(pm.response.text());"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{authz}}/applications?status=active"
+          }
+        },
+        {
+          "name": "Create application (CORE)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP ' + pm.response.code, () => pm.expect(pm.response.code).to.be.below(400));",
+                  "if (pm.response.code >= 400) console.log(pm.response.text());"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{authz}}/applications",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"{{app_code}}\",\n  \"name\": \"HBS Web\",\n  \"description\": \"Hall booking\",\n  \"utility_id\": \"{{utility_id}}\",\n  \"status\": \"active\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Owned by a utility (utility_id) or a business unit (bu_id)."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Roles & permissions",
+      "description": "Permission code = <MODULE_CODE>_<ACTION>; actions view, create, edit, delete, approve, export. Roles have no status: revoke permissions or assignments instead.",
+      "item": [
+        {
+          "name": "List modules",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP ' + pm.response.code, () => pm.expect(pm.response.code).to.be.below(400));",
+                  "if (pm.response.code >= 400) console.log(pm.response.text());"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{authz}}/modules?application_code={{app_code}}"
+          }
+        },
+        {
+          "name": "Create application module (CORE)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP ' + pm.response.code, () => pm.expect(pm.response.code).to.be.below(400));",
+                  "if (pm.response.code >= 400) console.log(pm.response.text());"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{authz}}/modules",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"module_code\": \"HBS_BOOKINGS\",\n  \"module_name\": \"Hall Bookings\",\n  \"application_code\": \"{{app_code}}\",\n  \"actions\": [\"view\", \"create\", \"edit\", \"delete\"]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "List permissions",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP ' + pm.response.code, () => pm.expect(pm.response.code).to.be.below(400));",
+                  "if (pm.response.code >= 400) console.log(pm.response.text());"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{authz}}/permissions?module_code=HBS_BOOKINGS"
+          }
+        },
+        {
+          "name": "Add permission (CORE)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP ' + pm.response.code, () => pm.expect(pm.response.code).to.be.below(400));",
+                  "if (pm.response.code >= 400) console.log(pm.response.text());"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{authz}}/permissions",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"module_code\": \"HBS_BOOKINGS\",\n  \"action\": \"export\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "List roles",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP ' + pm.response.code, () => pm.expect(pm.response.code).to.be.below(400));",
+                  "if (pm.response.code >= 400) console.log(pm.response.text());"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{authz}}/roles?scope_level=UTILITY"
+          }
+        },
+        {
+          "name": "Create role",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP ' + pm.response.code, () => pm.expect(pm.response.code).to.be.below(400));",
+                  "if (pm.response.code >= 400) console.log(pm.response.text());",
+                  "const b = pm.response.code < 400 ? pm.response.json() : {};",
+                  "if (b.role_id) { pm.collectionVariables.set('role_id', b.role_id); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{authz}}/roles",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"role_name\": \"HBS Booking Manager\",\n  \"scope_level\": \"UTILITY\",\n  \"permission_codes\": [\n    \"HBS_BOOKINGS_VIEW\",\n    \"HBS_BOOKINGS_CREATE\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Get role",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP ' + pm.response.code, () => pm.expect(pm.response.code).to.be.below(400));",
+                  "if (pm.response.code >= 400) console.log(pm.response.text());"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{authz}}/roles/{{role_id}}"
+          }
+        },
+        {
+          "name": "Rename role",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP ' + pm.response.code, () => pm.expect(pm.response.code).to.be.below(400));",
+                  "if (pm.response.code >= 400) console.log(pm.response.text());"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{authz}}/roles/{{role_id}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"role_name\": \"HBS Booking Lead\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Grant role permissions",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP ' + pm.response.code, () => pm.expect(pm.response.code).to.be.below(400));",
+                  "if (pm.response.code >= 400) console.log(pm.response.text());"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{authz}}/role-permissions",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"role_id\": \"{{role_id}}\",\n  \"permission_codes\": [\"HBS_BOOKINGS_EDIT\", \"HBS_BOOKINGS_DELETE\"],\n  \"action\": \"GRANT\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Revoke role permissions",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP ' + pm.response.code, () => pm.expect(pm.response.code).to.be.below(400));",
+                  "if (pm.response.code >= 400) console.log(pm.response.text());"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{authz}}/role-permissions",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"role_id\": \"{{role_id}}\",\n  \"permission_codes\": [\"HBS_BOOKINGS_DELETE\"],\n  \"action\": \"REVOKE\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Clients",
+      "description": "CONFIGURATION view to read; every write needs a CORE workspace with CONFIGURATION edit. After any write run \"Apply in Identity\".",
+      "item": [
+        {
+          "name": "List clients",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP ' + pm.response.code, () => pm.expect(pm.response.code).to.be.below(400));",
+                  "if (pm.response.code >= 400) console.log(pm.response.text());"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{authz}}/clients"
+          }
+        },
+        {
+          "name": "List clients by status",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP ' + pm.response.code, () => pm.expect(pm.response.code).to.be.below(400));",
+                  "if (pm.response.code >= 400) console.log(pm.response.text());"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{authz}}/clients?status=ACTIVE&environment=DEV"
+          }
+        },
+        {
+          "name": "Get client",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP ' + pm.response.code, () => pm.expect(pm.response.code).to.be.below(400));",
+                  "if (pm.response.code >= 400) console.log(pm.response.text());"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{authz}}/clients/{{client_id}}"
+          }
+        },
+        {
+          "name": "Create client (starts PENDING)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP ' + pm.response.code, () => pm.expect(pm.response.code).to.be.below(400));",
+                  "if (pm.response.code >= 400) console.log(pm.response.text());",
+                  "const b = pm.response.code < 400 ? pm.response.json() : {};",
+                  "if (b.client_id) { pm.collectionVariables.set('client_id', b.client_id); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{authz}}/clients",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"client_id\": \"{{app_code}}-web-dev\",\n  \"application_code\": \"{{app_code}}\",\n  \"environment_code\": \"DEV\",\n  \"name\": \"HBS Web (DEV)\",\n  \"client_type\": \"WEB\",\n  \"authentication_mode\": \"EMBEDDED_OR_REDIRECT\",\n  \"allowed_embed_origins\": [\"{{origin}}\"],\n  \"callback_uris\": [\"{{callback_uri}}\"],\n  \"back_channel_logout_uri\": \"{{origin}}/auth/core/logout\",\n  \"post_logout_redirect_uris\": [\"{{origin}}/logout/callback\"],\n  \"initiate_login_uri\": \"{{origin}}/auth/core/login\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "client_type WEB | SPA | MOBILE | SERVICE; authentication_mode EMBEDDED | REDIRECT | EMBEDDED_OR_REDIRECT. Sets client_id to the new client."
+          }
+        },
+        {
+          "name": "Update client settings",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP ' + pm.response.code, () => pm.expect(pm.response.code).to.be.below(400));",
+                  "if (pm.response.code >= 400) console.log(pm.response.text());"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{authz}}/clients/{{client_id}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"HBS Web (Development)\",\n  \"authentication_mode\": \"EMBEDDED_OR_REDIRECT\",\n  \"initiate_login_uri\": \"{{origin}}/auth/core/login\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "back_channel_logout_uri / initiate_login_uri: null removes the value."
+          }
+        },
+        {
+          "name": "Status → SECURITY_REVIEW",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP ' + pm.response.code, () => pm.expect(pm.response.code).to.be.below(400));",
+                  "if (pm.response.code >= 400) console.log(pm.response.text());"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{authz}}/clients/{{client_id}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"SECURITY_REVIEW\",\n  \"reason\": \"submitted for review\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Status → ACTIVE (activate)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP ' + pm.response.code, () => pm.expect(pm.response.code).to.be.below(400));",
+                  "if (pm.response.code >= 400) console.log(pm.response.text());"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{authz}}/clients/{{client_id}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"ACTIVE\",\n  \"reason\": \"review passed\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Needs at least one callback URI, and one embed origin for EMBEDDED modes (409 CLIENT_CONFIGURATION_INCOMPLETE)."
+          }
+        },
+        {
+          "name": "Status → SUSPENDED (deactivate)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP ' + pm.response.code, () => pm.expect(pm.response.code).to.be.below(400));",
+                  "if (pm.response.code >= 400) console.log(pm.response.text());"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{authz}}/clients/{{client_id}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"SUSPENDED\",\n  \"reason\": \"temporarily disabled\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Status → ACTIVE (reinstate)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP ' + pm.response.code, () => pm.expect(pm.response.code).to.be.below(400));",
+                  "if (pm.response.code >= 400) console.log(pm.response.text());"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{authz}}/clients/{{client_id}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"ACTIVE\",\n  \"reason\": \"reinstated\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Status → RETIRED (permanent)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP ' + pm.response.code, () => pm.expect(pm.response.code).to.be.below(400));",
+                  "if (pm.response.code >= 400) console.log(pm.response.text());"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{authz}}/clients/{{client_id}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"RETIRED\",\n  \"reason\": \"decommissioned\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Irreversible: a retired client can never be changed again (409 CLIENT_RETIRED). Allowed from every status."
+          }
+        },
+        {
+          "name": "List origins",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP ' + pm.response.code, () => pm.expect(pm.response.code).to.be.below(400));",
+                  "if (pm.response.code >= 400) console.log(pm.response.text());"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{authz}}/clients/{{client_id}}/origins"
+          }
+        },
+        {
+          "name": "Add origin",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP ' + pm.response.code, () => pm.expect(pm.response.code).to.be.below(400));",
+                  "if (pm.response.code >= 400) console.log(pm.response.text());"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{authz}}/clients/{{client_id}}/origins",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"origin\": \"{{origin}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Exact scheme://host[:port]; https (http only for localhost with ALLOW_INSECURE_LOCALHOST_URIS=true). Idempotent."
+          }
+        },
+        {
+          "name": "Remove origin (query)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP ' + pm.response.code, () => pm.expect(pm.response.code).to.be.below(400));",
+                  "if (pm.response.code >= 400) console.log(pm.response.text());"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{authz}}/clients/{{client_id}}/origins?origin={{origin}}",
+            "description": "404 ORIGIN_NOT_REGISTERED if absent; 409 CLIENT_CONFIGURATION_INCOMPLETE for the last origin of an ACTIVE embedded client."
+          }
+        },
+        {
+          "name": "Remove origin (JSON body)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP ' + pm.response.code, () => pm.expect(pm.response.code).to.be.below(400));",
+                  "if (pm.response.code >= 400) console.log(pm.response.text());"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{authz}}/clients/{{client_id}}/origins",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"origin\": \"{{origin}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "List callbacks",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP ' + pm.response.code, () => pm.expect(pm.response.code).to.be.below(400));",
+                  "if (pm.response.code >= 400) console.log(pm.response.text());"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{authz}}/clients/{{client_id}}/callbacks"
+          }
+        },
+        {
+          "name": "Add callback (CALLBACK)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP ' + pm.response.code, () => pm.expect(pm.response.code).to.be.below(400));",
+                  "if (pm.response.code >= 400) console.log(pm.response.text());"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{authz}}/clients/{{client_id}}/callbacks",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"uri\": \"{{callback_uri}}\",\n  \"uri_type\": \"CALLBACK\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Add post-logout redirect",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP ' + pm.response.code, () => pm.expect(pm.response.code).to.be.below(400));",
+                  "if (pm.response.code >= 400) console.log(pm.response.text());"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{authz}}/clients/{{client_id}}/callbacks",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"uri\": \"{{origin}}/logout/callback\",\n  \"uri_type\": \"POST_LOGOUT_REDIRECT\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Set back-channel logout URI",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP ' + pm.response.code, () => pm.expect(pm.response.code).to.be.below(400));",
+                  "if (pm.response.code >= 400) console.log(pm.response.text());"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{authz}}/clients/{{client_id}}/callbacks",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"uri\": \"{{origin}}/auth/core/logout\",\n  \"uri_type\": \"BACK_CHANNEL_LOGOUT\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Only one per client: replaces the existing one."
+          }
+        },
+        {
+          "name": "Remove callback (query)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP ' + pm.response.code, () => pm.expect(pm.response.code).to.be.below(400));",
+                  "if (pm.response.code >= 400) console.log(pm.response.text());"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{authz}}/clients/{{client_id}}/callbacks?uri={{callback_uri}}&uri_type=CALLBACK",
+            "description": "404 URI_NOT_REGISTERED if absent; 409 for the last callback of an ACTIVE client."
+          }
+        },
+        {
+          "name": "Remove callback (JSON body)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP ' + pm.response.code, () => pm.expect(pm.response.code).to.be.below(400));",
+                  "if (pm.response.code >= 400) console.log(pm.response.text());"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{authz}}/clients/{{client_id}}/callbacks",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"uri\": \"{{origin}}/logout/callback\",\n  \"uri_type\": \"POST_LOGOUT_REDIRECT\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Apply in Identity (refresh client)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP ' + pm.response.code, () => pm.expect(pm.response.code).to.be.below(400));",
+                  "if (pm.response.code >= 400) console.log(pm.response.text());"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{identity}}/federation/clients/{{client_id}}/refresh",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{identity_access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Identity endpoint. Token: select-scope with audience identity (global identity_access_token). Applies origin, callback and status changes now instead of after 30 s."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Users & assignments",
+      "description": "USER_MGMT. User status: active | inactive | suspended. scope_id is null for CORE, else bu_id / utility_id.",
+      "item": [
+        {
+          "name": "Create user",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP ' + pm.response.code, () => pm.expect(pm.response.code).to.be.below(400));",
+                  "if (pm.response.code >= 400) console.log(pm.response.text());"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{authz}}/users",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"its_id\": \"{{its_id}}\",\n  \"name\": \"New Member\",\n  \"email\": \"member@example.org\",\n  \"status\": \"active\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Get user (filtered to workspace)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP ' + pm.response.code, () => pm.expect(pm.response.code).to.be.below(400));",
+                  "if (pm.response.code >= 400) console.log(pm.response.text());"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{authz}}/users/{{its_id}}"
+          }
+        },
+        {
+          "name": "User roles",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP ' + pm.response.code, () => pm.expect(pm.response.code).to.be.below(400));",
+                  "if (pm.response.code >= 400) console.log(pm.response.text());"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{authz}}/users/{{its_id}}/roles"
+          }
+        },
+        {
+          "name": "Update user name / email",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP ' + pm.response.code, () => pm.expect(pm.response.code).to.be.below(400));",
+                  "if (pm.response.code >= 400) console.log(pm.response.text());"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{authz}}/users/{{its_id}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Member Name\",\n  \"email\": \"member.name@example.org\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Deactivate user",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP ' + pm.response.code, () => pm.expect(pm.response.code).to.be.below(400));",
+                  "if (pm.response.code >= 400) console.log(pm.response.text());"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{authz}}/users/{{its_id}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"inactive\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Permission checks deny with USER_INACTIVE. End live sessions with Identity force logout."
+          }
+        },
+        {
+          "name": "Suspend user",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP ' + pm.response.code, () => pm.expect(pm.response.code).to.be.below(400));",
+                  "if (pm.response.code >= 400) console.log(pm.response.text());"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{authz}}/users/{{its_id}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"suspended\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Activate user",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP ' + pm.response.code, () => pm.expect(pm.response.code).to.be.below(400));",
+                  "if (pm.response.code >= 400) console.log(pm.response.text());"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{authz}}/users/{{its_id}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"active\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Assign role in scope",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP ' + pm.response.code, () => pm.expect(pm.response.code).to.be.below(400));",
+                  "if (pm.response.code >= 400) console.log(pm.response.text());"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{authz}}/user-roles",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"its_id\": \"{{its_id}}\",\n  \"role_id\": \"{{role_id}}\",\n  \"scope_type\": \"UTILITY\",\n  \"scope_id\": \"{{utility_id}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "409 ASSIGNMENT_EXISTS if already held."
+          }
+        },
+        {
+          "name": "Revoke role in scope",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP ' + pm.response.code, () => pm.expect(pm.response.code).to.be.below(400));",
+                  "if (pm.response.code >= 400) console.log(pm.response.text());"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{authz}}/user-roles",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"its_id\": \"{{its_id}}\",\n  \"role_id\": \"{{role_id}}\",\n  \"scope_type\": \"UTILITY\",\n  \"scope_id\": \"{{utility_id}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Sync user profile (Identity service token)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP ' + pm.response.code, () => pm.expect(pm.response.code).to.be.below(400));",
+                  "if (pm.response.code >= 400) console.log(pm.response.text());"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{authz}}/users/sync",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{federation_service_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"its_id\": \"{{its_id}}\",\n  \"name\": \"Member Name\",\n  \"email\": \"member@example.org\",\n  \"status\": \"active\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Never accepts credentials."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Authorization (BU backend service token)",
+      "description": "Scope AUTHZ_CHECK; the principal may only ask about its own client IDs.",
+      "item": [
+        {
+          "name": "Check permission",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP ' + pm.response.code, () => pm.expect(pm.response.code).to.be.below(400));",
+                  "if (pm.response.code >= 400) console.log(pm.response.text());"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{authz}}/authorization/check",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bu_service_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"its_id\": \"30337752\",\n  \"client_id\": \"rms-web-dev\",\n  \"module\": \"RMS_REGISTRATION\",\n  \"permission\": \"RMS_REGISTRATION_VIEW\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Deny reasons: CLIENT_NOT_FOUND, CLIENT_NOT_ACTIVE, APPLICATION_INACTIVE, USER_NOT_FOUND, USER_INACTIVE, APPLICATION_ACCESS_DENIED, PERMISSION_DENIED, MODULE_MISMATCH."
+          }
+        },
+        {
+          "name": "Effective permissions",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP ' + pm.response.code, () => pm.expect(pm.response.code).to.be.below(400));",
+                  "if (pm.response.code >= 400) console.log(pm.response.text());"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{authz}}/authorization/effective-permissions",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bu_service_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"its_id\": \"30337752\",\n  \"client_id\": \"rms-web-dev\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Internal federation (Identity service token)",
+      "description": "Called by Identity Federation only (scope FEDERATION).",
+      "item": [
+        {
+          "name": "Client config",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP ' + pm.response.code, () => pm.expect(pm.response.code).to.be.below(400));",
+                  "if (pm.response.code >= 400) console.log(pm.response.text());"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{authz}}/internal/federation/clients/{{client_id}}",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{federation_service_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "User workspaces",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP ' + pm.response.code, () => pm.expect(pm.response.code).to.be.below(400));",
+                  "if (pm.response.code >= 400) console.log(pm.response.text());"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{authz}}/internal/federation/users/{{its_id}}/assignments",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{federation_service_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Used by Identity POST /login."
+          }
+        },
+        {
+          "name": "Resolve workspace",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP ' + pm.response.code, () => pm.expect(pm.response.code).to.be.below(400));",
+                  "if (pm.response.code >= 400) console.log(pm.response.text());"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{authz}}/internal/federation/assignments/resolve",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{federation_service_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"its_id\": \"{{its_id}}\",\n  \"role_id\": \"{{role_id}}\",\n  \"scope_type\": \"UTILITY\",\n  \"scope_id\": \"{{utility_id}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Used by Identity POST /select-scope; 404 when not assigned."
+          }
+        },
+        {
+          "name": "Launchable applications",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP ' + pm.response.code, () => pm.expect(pm.response.code).to.be.below(400));",
+                  "if (pm.response.code >= 400) console.log(pm.response.text());"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{authz}}/internal/federation/users/{{its_id}}/applications?environment=DEV",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{federation_service_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,3828 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/health": {
+      "get": {
+        "operationId": "HealthController_live",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Liveness probe",
+        "tags": [
+          "health"
+        ]
+      }
+    },
+    "/health/ready": {
+      "get": {
+        "operationId": "HealthController_ready",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Readiness probe (database + redis)",
+        "tags": [
+          "health"
+        ]
+      }
+    },
+    "/v1/tenants": {
+      "get": {
+        "operationId": "TenantsController_list[0]_v1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "tenants"
+        ]
+      },
+      "post": {
+        "operationId": "TenantsController_create[0]_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTenantDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Create a tenant (Platform Administrator)",
+        "tags": [
+          "tenants"
+        ]
+      }
+    },
+    "/tenants": {
+      "get": {
+        "operationId": "TenantsController_list[1]",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "tenants"
+        ]
+      },
+      "post": {
+        "operationId": "TenantsController_create[1]",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTenantDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Create a tenant (Platform Administrator)",
+        "tags": [
+          "tenants"
+        ]
+      }
+    },
+    "/v1/tenants/{tenantId}": {
+      "patch": {
+        "operationId": "TenantsController_update[0]_v1",
+        "parameters": [
+          {
+            "name": "tenantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateTenantDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "tenants"
+        ]
+      }
+    },
+    "/tenants/{tenantId}": {
+      "patch": {
+        "operationId": "TenantsController_update[1]",
+        "parameters": [
+          {
+            "name": "tenantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateTenantDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "tenants"
+        ]
+      }
+    },
+    "/v1/business-units": {
+      "get": {
+        "operationId": "BusinessUnitsController_list[0]_v1",
+        "parameters": [
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "active",
+                "inactive"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "business-units"
+        ]
+      },
+      "post": {
+        "operationId": "BusinessUnitsController_create[0]_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateBusinessUnitDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "business-units"
+        ]
+      }
+    },
+    "/business-units": {
+      "get": {
+        "operationId": "BusinessUnitsController_list[1]",
+        "parameters": [
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "active",
+                "inactive"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "business-units"
+        ]
+      },
+      "post": {
+        "operationId": "BusinessUnitsController_create[1]",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateBusinessUnitDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "business-units"
+        ]
+      }
+    },
+    "/v1/business-units/{buId}": {
+      "patch": {
+        "operationId": "BusinessUnitsController_update[0]_v1",
+        "parameters": [
+          {
+            "name": "buId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateBusinessUnitDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "business-units"
+        ]
+      }
+    },
+    "/business-units/{buId}": {
+      "patch": {
+        "operationId": "BusinessUnitsController_update[1]",
+        "parameters": [
+          {
+            "name": "buId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateBusinessUnitDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "business-units"
+        ]
+      }
+    },
+    "/v1/utilities": {
+      "get": {
+        "operationId": "UtilitiesController_list[0]_v1",
+        "parameters": [
+          {
+            "name": "bu_id",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "active",
+                "inactive"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "utilities"
+        ]
+      },
+      "post": {
+        "operationId": "UtilitiesController_create[0]_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateUtilityDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "utilities"
+        ]
+      }
+    },
+    "/utilities": {
+      "get": {
+        "operationId": "UtilitiesController_list[1]",
+        "parameters": [
+          {
+            "name": "bu_id",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "active",
+                "inactive"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "utilities"
+        ]
+      },
+      "post": {
+        "operationId": "UtilitiesController_create[1]",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateUtilityDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "utilities"
+        ]
+      }
+    },
+    "/v1/utilities/{utilityId}": {
+      "patch": {
+        "operationId": "UtilitiesController_update[0]_v1",
+        "parameters": [
+          {
+            "name": "utilityId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateUtilityDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "utilities"
+        ]
+      }
+    },
+    "/utilities/{utilityId}": {
+      "patch": {
+        "operationId": "UtilitiesController_update[1]",
+        "parameters": [
+          {
+            "name": "utilityId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateUtilityDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "utilities"
+        ]
+      }
+    },
+    "/v1/modules": {
+      "get": {
+        "operationId": "ModulesController_list[0]_v1",
+        "parameters": [
+          {
+            "name": "application_code",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": "rms",
+              "type": "string"
+            }
+          },
+          {
+            "name": "is_default",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Modules with their permissions (14 defaults + application modules)",
+        "tags": [
+          "modules"
+        ]
+      },
+      "post": {
+        "operationId": "ModulesController_create[0]_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateModuleDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Add a custom module (is_default = false) and its permissions",
+        "tags": [
+          "modules"
+        ]
+      }
+    },
+    "/modules": {
+      "get": {
+        "operationId": "ModulesController_list[1]",
+        "parameters": [
+          {
+            "name": "application_code",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": "rms",
+              "type": "string"
+            }
+          },
+          {
+            "name": "is_default",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Modules with their permissions (14 defaults + application modules)",
+        "tags": [
+          "modules"
+        ]
+      },
+      "post": {
+        "operationId": "ModulesController_create[1]",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateModuleDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Add a custom module (is_default = false) and its permissions",
+        "tags": [
+          "modules"
+        ]
+      }
+    },
+    "/v1/permissions": {
+      "get": {
+        "operationId": "PermissionsController_list[0]_v1",
+        "parameters": [
+          {
+            "name": "module_code",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": "ROLE_MGMT",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "permissions"
+        ]
+      },
+      "post": {
+        "operationId": "PermissionsController_create[0]_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePermissionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Add an action to a module; permission_code = <MODULE_CODE>_<ACTION>",
+        "tags": [
+          "permissions"
+        ]
+      }
+    },
+    "/permissions": {
+      "get": {
+        "operationId": "PermissionsController_list[1]",
+        "parameters": [
+          {
+            "name": "module_code",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": "ROLE_MGMT",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "permissions"
+        ]
+      },
+      "post": {
+        "operationId": "PermissionsController_create[1]",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePermissionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Add an action to a module; permission_code = <MODULE_CODE>_<ACTION>",
+        "tags": [
+          "permissions"
+        ]
+      }
+    },
+    "/v1/roles": {
+      "get": {
+        "operationId": "RolesController_list[0]_v1",
+        "parameters": [
+          {
+            "name": "scope_level",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "CORE",
+                "BUSINESS_UNIT",
+                "UTILITY"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "roles"
+        ]
+      },
+      "post": {
+        "operationId": "RolesController_create[0]_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateRoleDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Create a custom role at or below your workspace level (e.g. \"Zone Manager\")",
+        "tags": [
+          "roles"
+        ]
+      }
+    },
+    "/roles": {
+      "get": {
+        "operationId": "RolesController_list[1]",
+        "parameters": [
+          {
+            "name": "scope_level",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "CORE",
+                "BUSINESS_UNIT",
+                "UTILITY"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "roles"
+        ]
+      },
+      "post": {
+        "operationId": "RolesController_create[1]",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateRoleDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Create a custom role at or below your workspace level (e.g. \"Zone Manager\")",
+        "tags": [
+          "roles"
+        ]
+      }
+    },
+    "/v1/roles/{roleId}": {
+      "get": {
+        "operationId": "RolesController_get[0]_v1",
+        "parameters": [
+          {
+            "name": "roleId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "roles"
+        ]
+      },
+      "patch": {
+        "operationId": "RolesController_rename[0]_v1",
+        "parameters": [
+          {
+            "name": "roleId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateRoleDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "roles"
+        ]
+      }
+    },
+    "/roles/{roleId}": {
+      "get": {
+        "operationId": "RolesController_get[1]",
+        "parameters": [
+          {
+            "name": "roleId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "roles"
+        ]
+      },
+      "patch": {
+        "operationId": "RolesController_rename[1]",
+        "parameters": [
+          {
+            "name": "roleId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateRoleDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "roles"
+        ]
+      }
+    },
+    "/v1/role-permissions": {
+      "post": {
+        "operationId": "RolePermissionsController_change[0]_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RolePermissionsDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Grant or revoke permissions on a role (no escalation beyond your own permissions)",
+        "tags": [
+          "roles"
+        ]
+      }
+    },
+    "/role-permissions": {
+      "post": {
+        "operationId": "RolePermissionsController_change[1]",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RolePermissionsDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Grant or revoke permissions on a role (no escalation beyond your own permissions)",
+        "tags": [
+          "roles"
+        ]
+      }
+    },
+    "/v1/users/sync": {
+      "post": {
+        "operationId": "UsersController_sync[0]_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SyncUserDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Create or update a user profile from Identity Federation (never credentials)",
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/users/sync": {
+      "post": {
+        "operationId": "UsersController_sync[1]",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SyncUserDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Create or update a user profile from Identity Federation (never credentials)",
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/v1/users/{itsId}": {
+      "get": {
+        "operationId": "UsersController_get[0]_v1",
+        "parameters": [
+          {
+            "name": "itsId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "User profile with role assignments (filtered to your workspace)",
+        "tags": [
+          "users"
+        ]
+      },
+      "patch": {
+        "operationId": "UsersController_update[0]_v1",
+        "parameters": [
+          {
+            "name": "itsId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateUserDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/users/{itsId}": {
+      "get": {
+        "operationId": "UsersController_get[1]",
+        "parameters": [
+          {
+            "name": "itsId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "User profile with role assignments (filtered to your workspace)",
+        "tags": [
+          "users"
+        ]
+      },
+      "patch": {
+        "operationId": "UsersController_update[1]",
+        "parameters": [
+          {
+            "name": "itsId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateUserDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/v1/users/{itsId}/roles": {
+      "get": {
+        "operationId": "UsersController_roles[0]_v1",
+        "parameters": [
+          {
+            "name": "itsId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/users/{itsId}/roles": {
+      "get": {
+        "operationId": "UsersController_roles[1]",
+        "parameters": [
+          {
+            "name": "itsId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/v1/users": {
+      "post": {
+        "operationId": "UsersController_create[0]_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateUserDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/users": {
+      "post": {
+        "operationId": "UsersController_create[1]",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateUserDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/v1/user-roles": {
+      "post": {
+        "operationId": "UserRolesController_assign[0]_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserRoleDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Assign a role to a user in a scope (CORE | BUSINESS_UNIT bu_id | UTILITY utility_id)",
+        "tags": [
+          "users"
+        ]
+      },
+      "delete": {
+        "operationId": "UserRolesController_revoke[0]_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserRoleDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Revoke a role assignment",
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/user-roles": {
+      "post": {
+        "operationId": "UserRolesController_assign[1]",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserRoleDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Assign a role to a user in a scope (CORE | BUSINESS_UNIT bu_id | UTILITY utility_id)",
+        "tags": [
+          "users"
+        ]
+      },
+      "delete": {
+        "operationId": "UserRolesController_revoke[1]",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserRoleDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Revoke a role assignment",
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/v1/me": {
+      "get": {
+        "operationId": "MeController_me[0]_v1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Signed-in user and the active workspace",
+        "tags": [
+          "me"
+        ]
+      }
+    },
+    "/me": {
+      "get": {
+        "operationId": "MeController_me[1]",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Signed-in user and the active workspace",
+        "tags": [
+          "me"
+        ]
+      }
+    },
+    "/v1/me/assignments": {
+      "get": {
+        "operationId": "MeController_assignments[0]_v1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "All workspaces (role × scope) of the signed-in user; usable before selecting one",
+        "tags": [
+          "me"
+        ]
+      }
+    },
+    "/me/assignments": {
+      "get": {
+        "operationId": "MeController_assignments[1]",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "All workspaces (role × scope) of the signed-in user; usable before selecting one",
+        "tags": [
+          "me"
+        ]
+      }
+    },
+    "/v1/me/permissions": {
+      "get": {
+        "operationId": "MeController_permissions[0]_v1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "example": {
+                    "DASHBOARD": [
+                      "view"
+                    ],
+                    "ROLE_MGMT": [
+                      "view",
+                      "create",
+                      "edit"
+                    ],
+                    "CONFIGURATION": [
+                      "view",
+                      "edit"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Permissions of the active workspace: { MODULE_CODE: [actions] }. Missing key = module hidden.",
+        "tags": [
+          "me"
+        ]
+      }
+    },
+    "/me/permissions": {
+      "get": {
+        "operationId": "MeController_permissions[1]",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "example": {
+                    "DASHBOARD": [
+                      "view"
+                    ],
+                    "ROLE_MGMT": [
+                      "view",
+                      "create",
+                      "edit"
+                    ],
+                    "CONFIGURATION": [
+                      "view",
+                      "edit"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Permissions of the active workspace: { MODULE_CODE: [actions] }. Missing key = module hidden.",
+        "tags": [
+          "me"
+        ]
+      }
+    },
+    "/v1/applications": {
+      "get": {
+        "operationId": "ApplicationsController_list[0]_v1",
+        "parameters": [
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "active",
+                "inactive"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "applications"
+        ]
+      },
+      "post": {
+        "operationId": "ApplicationsController_create[0]_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateApplicationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "applications"
+        ]
+      }
+    },
+    "/applications": {
+      "get": {
+        "operationId": "ApplicationsController_list[1]",
+        "parameters": [
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "active",
+                "inactive"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "applications"
+        ]
+      },
+      "post": {
+        "operationId": "ApplicationsController_create[1]",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateApplicationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "applications"
+        ]
+      }
+    },
+    "/v1/environments": {
+      "get": {
+        "operationId": "EnvironmentsController_list[0]_v1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "environments"
+        ]
+      },
+      "post": {
+        "operationId": "EnvironmentsController_create[0]_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateEnvironmentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "environments"
+        ]
+      }
+    },
+    "/environments": {
+      "get": {
+        "operationId": "EnvironmentsController_list[1]",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "environments"
+        ]
+      },
+      "post": {
+        "operationId": "EnvironmentsController_create[1]",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateEnvironmentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "environments"
+        ]
+      }
+    },
+    "/v1/clients": {
+      "get": {
+        "operationId": "ClientsController_list[0]_v1",
+        "parameters": [
+          {
+            "name": "application",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": "rms",
+              "type": "string"
+            }
+          },
+          {
+            "name": "environment",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": "PROD",
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "PENDING",
+                "SECURITY_REVIEW",
+                "ACTIVE",
+                "SUSPENDED",
+                "RETIRED"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "clients"
+        ]
+      },
+      "post": {
+        "operationId": "ClientsController_create[0]_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateClientDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Register a client (always starts in PENDING)",
+        "tags": [
+          "clients"
+        ]
+      }
+    },
+    "/clients": {
+      "get": {
+        "operationId": "ClientsController_list[1]",
+        "parameters": [
+          {
+            "name": "application",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": "rms",
+              "type": "string"
+            }
+          },
+          {
+            "name": "environment",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": "PROD",
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "PENDING",
+                "SECURITY_REVIEW",
+                "ACTIVE",
+                "SUSPENDED",
+                "RETIRED"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "clients"
+        ]
+      },
+      "post": {
+        "operationId": "ClientsController_create[1]",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateClientDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Register a client (always starts in PENDING)",
+        "tags": [
+          "clients"
+        ]
+      }
+    },
+    "/v1/clients/{clientId}": {
+      "get": {
+        "operationId": "ClientsController_get[0]_v1",
+        "parameters": [
+          {
+            "name": "clientId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "clients"
+        ]
+      },
+      "patch": {
+        "operationId": "ClientsController_update[0]_v1",
+        "parameters": [
+          {
+            "name": "clientId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateClientDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Update client settings or move it through its lifecycle",
+        "tags": [
+          "clients"
+        ]
+      }
+    },
+    "/clients/{clientId}": {
+      "get": {
+        "operationId": "ClientsController_get[1]",
+        "parameters": [
+          {
+            "name": "clientId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "clients"
+        ]
+      },
+      "patch": {
+        "operationId": "ClientsController_update[1]",
+        "parameters": [
+          {
+            "name": "clientId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateClientDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Update client settings or move it through its lifecycle",
+        "tags": [
+          "clients"
+        ]
+      }
+    },
+    "/v1/clients/{clientId}/origins": {
+      "get": {
+        "operationId": "ClientsController_origins[0]_v1",
+        "parameters": [
+          {
+            "name": "clientId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List the embed origins allowed to frame the login page for this client",
+        "tags": [
+          "clients"
+        ]
+      },
+      "post": {
+        "operationId": "ClientsController_addOrigin[0]_v1",
+        "parameters": [
+          {
+            "name": "clientId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddOriginDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Allow an embed origin (exact scheme://host[:port], https; http only for localhost in dev). Idempotent.",
+        "tags": [
+          "clients"
+        ]
+      },
+      "delete": {
+        "operationId": "ClientsController_removeOrigin[0]_v1",
+        "parameters": [
+          {
+            "name": "clientId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "origin",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RemoveOriginDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Remove an embed origin: ?origin=<origin> or JSON body { \"origin\": \"...\" }",
+        "tags": [
+          "clients"
+        ]
+      }
+    },
+    "/clients/{clientId}/origins": {
+      "get": {
+        "operationId": "ClientsController_origins[1]",
+        "parameters": [
+          {
+            "name": "clientId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List the embed origins allowed to frame the login page for this client",
+        "tags": [
+          "clients"
+        ]
+      },
+      "post": {
+        "operationId": "ClientsController_addOrigin[1]",
+        "parameters": [
+          {
+            "name": "clientId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddOriginDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Allow an embed origin (exact scheme://host[:port], https; http only for localhost in dev). Idempotent.",
+        "tags": [
+          "clients"
+        ]
+      },
+      "delete": {
+        "operationId": "ClientsController_removeOrigin[1]",
+        "parameters": [
+          {
+            "name": "clientId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "origin",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RemoveOriginDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Remove an embed origin: ?origin=<origin> or JSON body { \"origin\": \"...\" }",
+        "tags": [
+          "clients"
+        ]
+      }
+    },
+    "/v1/clients/{clientId}/callbacks": {
+      "get": {
+        "operationId": "ClientsController_callbacks[0]_v1",
+        "parameters": [
+          {
+            "name": "clientId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "clients"
+        ]
+      },
+      "post": {
+        "operationId": "ClientsController_addCallback[0]_v1",
+        "parameters": [
+          {
+            "name": "clientId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddCallbackDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Add a CALLBACK, POST_LOGOUT_REDIRECT or BACK_CHANNEL_LOGOUT URI (exact match)",
+        "tags": [
+          "clients"
+        ]
+      },
+      "delete": {
+        "operationId": "ClientsController_removeCallback[0]_v1",
+        "parameters": [
+          {
+            "name": "clientId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "uri_type",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "CALLBACK",
+                "BACK_CHANNEL_LOGOUT",
+                "POST_LOGOUT_REDIRECT"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "uri",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RemoveCallbackDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Remove a callback / logout URI: ?uri=&uri_type= or JSON body { \"uri\", \"uri_type\" }",
+        "tags": [
+          "clients"
+        ]
+      }
+    },
+    "/clients/{clientId}/callbacks": {
+      "get": {
+        "operationId": "ClientsController_callbacks[1]",
+        "parameters": [
+          {
+            "name": "clientId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "clients"
+        ]
+      },
+      "post": {
+        "operationId": "ClientsController_addCallback[1]",
+        "parameters": [
+          {
+            "name": "clientId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddCallbackDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Add a CALLBACK, POST_LOGOUT_REDIRECT or BACK_CHANNEL_LOGOUT URI (exact match)",
+        "tags": [
+          "clients"
+        ]
+      },
+      "delete": {
+        "operationId": "ClientsController_removeCallback[1]",
+        "parameters": [
+          {
+            "name": "clientId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "uri_type",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "CALLBACK",
+                "BACK_CHANNEL_LOGOUT",
+                "POST_LOGOUT_REDIRECT"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "uri",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RemoveCallbackDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Remove a callback / logout URI: ?uri=&uri_type= or JSON body { \"uri\", \"uri_type\" }",
+        "tags": [
+          "clients"
+        ]
+      }
+    },
+    "/v1/authorization/check": {
+      "post": {
+        "operationId": "AuthorizationController_check[0]_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AuthorizationCheckDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Server-side permission check for one user, client and permission (service token)",
+        "tags": [
+          "authorization"
+        ]
+      }
+    },
+    "/authorization/check": {
+      "post": {
+        "operationId": "AuthorizationController_check[1]",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AuthorizationCheckDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Server-side permission check for one user, client and permission (service token)",
+        "tags": [
+          "authorization"
+        ]
+      }
+    },
+    "/v1/authorization/effective-permissions": {
+      "post": {
+        "operationId": "AuthorizationController_effectivePermissions[0]_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EffectivePermissionsDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "All roles, modules and permissions a user holds for a client (service token)",
+        "tags": [
+          "authorization"
+        ]
+      }
+    },
+    "/authorization/effective-permissions": {
+      "post": {
+        "operationId": "AuthorizationController_effectivePermissions[1]",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EffectivePermissionsDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "All roles, modules and permissions a user holds for a client (service token)",
+        "tags": [
+          "authorization"
+        ]
+      }
+    },
+    "/v1/internal/federation/clients/{clientId}": {
+      "get": {
+        "operationId": "FederationController_client[0]_v1",
+        "parameters": [
+          {
+            "name": "clientId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Client configuration used by Identity Federation to validate embedded login",
+        "tags": [
+          "internal-federation"
+        ]
+      }
+    },
+    "/internal/federation/clients/{clientId}": {
+      "get": {
+        "operationId": "FederationController_client[1]",
+        "parameters": [
+          {
+            "name": "clientId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Client configuration used by Identity Federation to validate embedded login",
+        "tags": [
+          "internal-federation"
+        ]
+      }
+    },
+    "/v1/internal/federation/users/{itsId}/assignments": {
+      "get": {
+        "operationId": "FederationController_assignments[0]_v1",
+        "parameters": [
+          {
+            "name": "itsId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Workspaces (role × scope) returned by POST /login",
+        "tags": [
+          "internal-federation"
+        ]
+      }
+    },
+    "/internal/federation/users/{itsId}/assignments": {
+      "get": {
+        "operationId": "FederationController_assignments[1]",
+        "parameters": [
+          {
+            "name": "itsId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Workspaces (role × scope) returned by POST /login",
+        "tags": [
+          "internal-federation"
+        ]
+      }
+    },
+    "/v1/internal/federation/assignments/resolve": {
+      "post": {
+        "operationId": "FederationController_resolve[0]_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResolveAssignmentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Validate a workspace for POST /select-scope; returns active scope + permission map",
+        "tags": [
+          "internal-federation"
+        ]
+      }
+    },
+    "/internal/federation/assignments/resolve": {
+      "post": {
+        "operationId": "FederationController_resolve[1]",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResolveAssignmentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Validate a workspace for POST /select-scope; returns active scope + permission map",
+        "tags": [
+          "internal-federation"
+        ]
+      }
+    },
+    "/v1/internal/federation/users/{itsId}/applications": {
+      "get": {
+        "operationId": "FederationController_applications[0]_v1",
+        "parameters": [
+          {
+            "name": "itsId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "environment",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "example": "DEV",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Applications a user may launch from the Core Portal",
+        "tags": [
+          "internal-federation"
+        ]
+      }
+    },
+    "/internal/federation/users/{itsId}/applications": {
+      "get": {
+        "operationId": "FederationController_applications[1]",
+        "parameters": [
+          {
+            "name": "itsId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "environment",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "example": "DEV",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Applications a user may launch from the Core Portal",
+        "tags": [
+          "internal-federation"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "Miqaat Core Identity Authorization Service",
+    "description": "Dynamic Business Unit / Utility / Application / Environment / Module / Role / Permission model, client registry and server-side authorization checks. No API keys: every call carries an RS256 bearer JWT verified via JWKS - service tokens (typ client-authentication+jwt) from registered service principals, or administrator access tokens (typ at+jwt) issued by Identity Federation. Never stores credentials.",
+    "version": "1.0.0",
+    "contact": {}
+  },
+  "tags": [],
+  "servers": [],
+  "components": {
+    "securitySchemes": {
+      "bearer": {
+        "scheme": "bearer",
+        "bearerFormat": "JWT (RS256, verified via JWKS)",
+        "type": "http"
+      }
+    },
+    "schemas": {
+      "CreateTenantDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Miqaat"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "inactive"
+            ],
+            "default": "active"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "UpdateTenantDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "inactive"
+            ]
+          }
+        }
+      },
+      "CreateBusinessUnitDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "RMS"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "inactive"
+            ],
+            "default": "active"
+          },
+          "tenant_id": {
+            "type": "string",
+            "description": "Only for ADMIN service principals; users always create in their own tenant"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "UpdateBusinessUnitDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "inactive"
+            ]
+          }
+        }
+      },
+      "CreateUtilityDto": {
+        "type": "object",
+        "properties": {
+          "bu_id": {
+            "type": "string",
+            "description": "Parent business unit"
+          },
+          "name": {
+            "type": "string",
+            "example": "Helpdesk"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "inactive"
+            ],
+            "default": "active"
+          }
+        },
+        "required": [
+          "bu_id",
+          "name"
+        ]
+      },
+      "UpdateUtilityDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "inactive"
+            ]
+          }
+        }
+      },
+      "CreateModuleDto": {
+        "type": "object",
+        "properties": {
+          "module_code": {
+            "type": "string",
+            "example": "RMS_REGISTRATION"
+          },
+          "module_name": {
+            "type": "string",
+            "example": "RMS Registration"
+          },
+          "application_code": {
+            "type": "string",
+            "example": "rms",
+            "description": "Owning application; omit for a Core Portal module"
+          },
+          "actions": {
+            "type": "array",
+            "example": [
+              "view",
+              "create",
+              "edit"
+            ],
+            "items": {
+              "type": "string",
+              "enum": [
+                "view",
+                "create",
+                "edit",
+                "delete",
+                "approve",
+                "export"
+              ]
+            }
+          }
+        },
+        "required": [
+          "module_code",
+          "module_name"
+        ]
+      },
+      "CreatePermissionDto": {
+        "type": "object",
+        "properties": {
+          "module_code": {
+            "type": "string",
+            "example": "ROLE_MGMT"
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "view",
+              "create",
+              "edit",
+              "delete",
+              "approve",
+              "export"
+            ],
+            "example": "export"
+          }
+        },
+        "required": [
+          "module_code",
+          "action"
+        ]
+      },
+      "CreateRoleDto": {
+        "type": "object",
+        "properties": {
+          "role_name": {
+            "type": "string",
+            "example": "Zone Manager"
+          },
+          "scope_level": {
+            "type": "string",
+            "enum": [
+              "CORE",
+              "BUSINESS_UNIT",
+              "UTILITY"
+            ],
+            "example": "UTILITY"
+          },
+          "permission_codes": {
+            "example": [
+              "DASHBOARD_VIEW",
+              "TICKET_MGMT_VIEW",
+              "TICKET_MGMT_CREATE"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "tenant_id": {
+            "type": "string",
+            "description": "Only for ADMIN service principals"
+          }
+        },
+        "required": [
+          "role_name",
+          "scope_level"
+        ]
+      },
+      "UpdateRoleDto": {
+        "type": "object",
+        "properties": {
+          "role_name": {
+            "type": "string",
+            "example": "Zone Manager (North)"
+          }
+        },
+        "required": [
+          "role_name"
+        ]
+      },
+      "RolePermissionsDto": {
+        "type": "object",
+        "properties": {
+          "role_id": {
+            "type": "string"
+          },
+          "permission_codes": {
+            "example": [
+              "TICKET_MGMT_EDIT"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "GRANT",
+              "REVOKE"
+            ],
+            "default": "GRANT"
+          }
+        },
+        "required": [
+          "role_id",
+          "permission_codes"
+        ]
+      },
+      "SyncUserDto": {
+        "type": "object",
+        "properties": {
+          "its_id": {
+            "type": "string",
+            "example": "30337752"
+          },
+          "name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "inactive",
+              "suspended"
+            ]
+          }
+        },
+        "required": [
+          "its_id"
+        ]
+      },
+      "CreateUserDto": {
+        "type": "object",
+        "properties": {
+          "its_id": {
+            "type": "string",
+            "example": "31189012",
+            "description": "ITS ID is the user ID"
+          },
+          "name": {
+            "type": "string",
+            "example": "Burhan"
+          },
+          "email": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "inactive",
+              "suspended"
+            ],
+            "default": "active"
+          }
+        },
+        "required": [
+          "its_id",
+          "name"
+        ]
+      },
+      "UpdateUserDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "inactive",
+              "suspended"
+            ]
+          }
+        }
+      },
+      "UserRoleDto": {
+        "type": "object",
+        "properties": {
+          "its_id": {
+            "type": "string",
+            "example": "31267890"
+          },
+          "role_id": {
+            "type": "string"
+          },
+          "scope_type": {
+            "type": "string",
+            "enum": [
+              "CORE",
+              "BUSINESS_UNIT",
+              "UTILITY"
+            ],
+            "example": "UTILITY"
+          },
+          "scope_id": {
+            "type": "object",
+            "description": "NULL for CORE, else bu_id or utility_id",
+            "nullable": true
+          }
+        },
+        "required": [
+          "its_id",
+          "role_id",
+          "scope_type"
+        ]
+      },
+      "CreateApplicationDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "example": "hbs"
+          },
+          "name": {
+            "type": "string",
+            "example": "HBS Web"
+          },
+          "description": {
+            "type": "string"
+          },
+          "bu_id": {
+            "type": "string",
+            "description": "Owning business unit"
+          },
+          "utility_id": {
+            "type": "string",
+            "description": "Owning utility"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "inactive"
+            ],
+            "default": "active"
+          }
+        },
+        "required": [
+          "code",
+          "name"
+        ]
+      },
+      "CreateEnvironmentDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "example": "UAT"
+          },
+          "name": {
+            "type": "string",
+            "example": "User Acceptance Testing"
+          },
+          "is_production": {
+            "type": "boolean",
+            "default": false
+          },
+          "sort_order": {
+            "type": "number",
+            "default": 0
+          }
+        },
+        "required": [
+          "code",
+          "name"
+        ]
+      },
+      "CreateClientDto": {
+        "type": "object",
+        "properties": {
+          "client_id": {
+            "type": "string",
+            "example": "rms-web-prod",
+            "description": "Globally unique; never reused across environments"
+          },
+          "application_code": {
+            "type": "string",
+            "example": "rms"
+          },
+          "environment_code": {
+            "type": "string",
+            "example": "PROD"
+          },
+          "name": {
+            "type": "string",
+            "example": "RMS Web (Production)"
+          },
+          "client_type": {
+            "type": "string",
+            "enum": [
+              "WEB",
+              "SPA",
+              "MOBILE",
+              "SERVICE"
+            ],
+            "example": "WEB"
+          },
+          "authentication_mode": {
+            "type": "string",
+            "enum": [
+              "EMBEDDED",
+              "REDIRECT",
+              "EMBEDDED_OR_REDIRECT"
+            ],
+            "example": "EMBEDDED"
+          },
+          "allowed_embed_origins": {
+            "example": [
+              "https://rms.example.com"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "callback_uris": {
+            "example": [
+              "https://rms.example.com/auth/core/callback"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "back_channel_logout_uri": {
+            "type": "string",
+            "example": "https://rms.example.com/auth/core/logout"
+          },
+          "post_logout_redirect_uris": {
+            "example": [
+              "https://rms.example.com/logout/callback"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "initiate_login_uri": {
+            "type": "string",
+            "example": "https://rms.example.com/auth/core/login",
+            "description": "Used by the Core Portal launcher"
+          }
+        },
+        "required": [
+          "client_id",
+          "application_code",
+          "environment_code",
+          "client_type",
+          "authentication_mode"
+        ]
+      },
+      "UpdateClientDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "SECURITY_REVIEW",
+              "ACTIVE",
+              "SUSPENDED",
+              "RETIRED"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "description": "Reason recorded in client status history"
+          },
+          "name": {
+            "type": "string"
+          },
+          "authentication_mode": {
+            "type": "string",
+            "enum": [
+              "EMBEDDED",
+              "REDIRECT",
+              "EMBEDDED_OR_REDIRECT"
+            ]
+          },
+          "back_channel_logout_uri": {
+            "type": "object",
+            "nullable": true,
+            "description": "null removes the back-channel logout URI"
+          },
+          "initiate_login_uri": {
+            "type": "object",
+            "nullable": true
+          }
+        }
+      },
+      "AddOriginDto": {
+        "type": "object",
+        "properties": {
+          "origin": {
+            "type": "string",
+            "example": "https://rms.example.com"
+          }
+        },
+        "required": [
+          "origin"
+        ]
+      },
+      "RemoveOriginDto": {
+        "type": "object",
+        "properties": {
+          "origin": {
+            "type": "string",
+            "example": "http://localhost:3000"
+          }
+        }
+      },
+      "AddCallbackDto": {
+        "type": "object",
+        "properties": {
+          "uri": {
+            "type": "string",
+            "example": "https://rms.example.com/auth/core/callback"
+          },
+          "uri_type": {
+            "type": "string",
+            "enum": [
+              "CALLBACK",
+              "BACK_CHANNEL_LOGOUT",
+              "POST_LOGOUT_REDIRECT"
+            ],
+            "default": "CALLBACK"
+          },
+          "is_primary": {
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "required": [
+          "uri"
+        ]
+      },
+      "RemoveCallbackDto": {
+        "type": "object",
+        "properties": {
+          "uri": {
+            "type": "string",
+            "example": "http://localhost:3000/auth/core/callback"
+          },
+          "uri_type": {
+            "type": "string",
+            "enum": [
+              "CALLBACK",
+              "BACK_CHANNEL_LOGOUT",
+              "POST_LOGOUT_REDIRECT"
+            ],
+            "default": "CALLBACK"
+          }
+        }
+      },
+      "AuthorizationCheckDto": {
+        "type": "object",
+        "properties": {
+          "its_id": {
+            "type": "string",
+            "example": "ITS12345"
+          },
+          "client_id": {
+            "type": "string",
+            "example": "rms-web-prod"
+          },
+          "module": {
+            "type": "string",
+            "example": "RMS_REGISTRATION"
+          },
+          "permission": {
+            "type": "string",
+            "example": "RMS_REGISTRATION_VIEW"
+          }
+        },
+        "required": [
+          "its_id",
+          "client_id",
+          "permission"
+        ]
+      },
+      "CheckResponse": {
+        "type": "object",
+        "properties": {
+          "allowed": {
+            "type": "boolean"
+          },
+          "its_id": {
+            "type": "string"
+          },
+          "client_id": {
+            "type": "string"
+          },
+          "permission": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string",
+            "example": "PERMISSION_DENIED"
+          }
+        },
+        "required": [
+          "allowed"
+        ]
+      },
+      "EffectivePermissionsDto": {
+        "type": "object",
+        "properties": {
+          "its_id": {
+            "type": "string",
+            "example": "ITS12345"
+          },
+          "client_id": {
+            "type": "string",
+            "example": "rms-web-prod"
+          }
+        },
+        "required": [
+          "its_id",
+          "client_id"
+        ]
+      },
+      "ResolveAssignmentDto": {
+        "type": "object",
+        "properties": {
+          "its_id": {
+            "type": "string",
+            "example": "31267890"
+          },
+          "role_id": {
+            "type": "string"
+          },
+          "scope_type": {
+            "type": "string",
+            "enum": [
+              "CORE",
+              "BUSINESS_UNIT",
+              "UTILITY"
+            ]
+          },
+          "scope_id": {
+            "type": "object",
+            "nullable": true
+          }
+        },
+        "required": [
+          "its_id",
+          "role_id",
+          "scope_type"
+        ]
+      }
+    }
+  }
+}
