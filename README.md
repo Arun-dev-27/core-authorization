@@ -98,7 +98,8 @@ An origin is the parent page allowed to frame the Core login iframe (`frame-ance
 Rules: adding is idempotent. Removing an unknown value returns `404 ORIGIN_NOT_REGISTERED` / `URI_NOT_REGISTERED`. The last
 origin or callback of an ACTIVE embedded client can't be removed (`409 CLIENT_CONFIGURATION_INCOMPLETE`); suspend the client first.
 Every change is audited (`CLIENT_ORIGIN_ADDED`, `CLIENT_ORIGIN_REMOVED`, `CLIENT_URI_ADDED`, `CLIENT_URI_REMOVED`) with the actor.
-Identity Federation applies it within `CLIENT_CACHE_TTL_SECONDS` (30 s), or immediately through
+Identity Federation reads client configuration fresh when a transaction is created, the login page opens and a user signs in,
+so the change applies to the next sign-in. Its other cached lookups follow within `CLIENT_CACHE_TTL_SECONDS` (30 s), or immediately through
 `POST <identity>/federation/clients/:clientId/refresh`.
 
 Every feature route is served at both `/<path>` and `/v1/<path>`; `/health*` is version-neutral only. Swagger: `http://localhost:3002/docs` · OpenAPI: `docs/openapi.json` ·

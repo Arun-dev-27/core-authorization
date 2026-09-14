@@ -4,7 +4,9 @@ Everything below is data in the Authorization DB, created through the API with a
 sign in to the Core Portal (Identity `POST /login`), select your **Platform Administrator (CORE)** workspace with
 `POST /select-scope`, and use the returned `token`. Each call is checked against that workspace's permissions
 (`BUSINESS_UNIT_MGMT`, `UTILITY_MGMT`, `ROLE_MGMT`, `USER_MGMT`, `CONFIGURATION`). There are no API keys.
-Identity Federation picks up new or changed clients within `CLIENT_CACHE_TTL_SECONDS` (30 s).
+Identity Federation reads client configuration fresh when a transaction is created, the login page opens and a user signs in,
+so new or changed clients, origins, callbacks and status apply to the next sign-in without a refresh call. Its other cached
+lookups (portal launcher, logout) follow within `CLIENT_CACHE_TTL_SECONDS` (30 s) or at once via `POST <identity>/federation/clients/:clientId/refresh`.
 
 Example: a new **Hall Booking System (HBS)** owned by a new utility under the RMS business unit.
 
