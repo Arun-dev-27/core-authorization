@@ -89,6 +89,8 @@ export class RolesService {
   async rename(actor: ActorContext, roleId: string, roleName: string) {
     await this.loadManageable(actor, roleId);
     await this.db.query(`UPDATE roles SET role_name = $2 WHERE role_id = $1`, [roleId, roleName]);
+    // role_name is part of cached effective access and signed authorization tokens.
+    await this.cache.invalidateAll();
     await this.audit.record({ eventType: 'ROLE_UPDATED', resourceType: 'role', resourceId: roleId, metadata: { role_name: roleName } });
     return this.get(actor, roleId);
   }

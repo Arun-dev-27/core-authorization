@@ -1,7 +1,10 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import Redis from 'ioredis';
 import { AppConfig } from '@config/config.module';
+import { DomainError } from '@common/errors/domain-error';
 import { REDIS } from '@core/cache/redis.module';
+
+const INVALIDATION_ATTEMPTS = 3;
 
 /**
  * Effective-permission cache.
@@ -9,7 +12,8 @@ import { REDIS } from '@core/cache/redis.module';
  * Keys: authz:eff:v<version>:<its_id>:<client_id>  (TTL = EFFECTIVE_PERMISSION_CACHE_TTL_SECONDS)
  * Any write to the authorization model INCRs `authz:version`, which orphans every
  * cached entry at once, so grants/revocations take effect immediately.
- * Redis failures degrade to direct DB evaluation, never to a stale ALLOW.
+ * Redis read failures degrade to direct DB evaluation. A failed invalidation is never silent:
+ * the write request fails with 503 so the caller knows cached decisions may outlive the change.
  */
 @Injectable()
 export class AuthzCacheService {
@@ -44,13 +48,28 @@ export class AuthzCacheService {
     }
   }
 
-  /** Must be awaited after every committed authorization-model change. */
+  /**
+   * Must be awaited after every committed authorization-model change.
+   * Retries briefly; if the version bump still fails, throws 503 CACHE_INVALIDATION_FAILED
+   * (the change is saved, but a cached ALLOW could otherwise live until its TTL without anyone knowing).
+   */
   async invalidateAll(): Promise<void> {
-    try {
-      await this.redis.incr(AuthzCacheService.VERSION_KEY);
-    } catch (error) {
-      this.logger.error({ msg: 'permission cache invalidation failed', err: error });
+    let lastError: unknown;
+    for (let attempt = 1; attempt <= INVALIDATION_ATTEMPTS; attempt++) {
+      try {
+        await this.redis.incr(AuthzCacheService.VERSION_KEY);
+        return;
+      } catch (error) {
+        lastError = error;
+        if (attempt < INVALIDATION_ATTEMPTS) await new Promise((resolve) => setTimeout(resolve, 50 * attempt));
+      }
     }
+    this.logger.error({ msg: 'permission cache invalidation failed', attempts: INVALIDATION_ATTEMPTS, err: lastError });
+    throw new DomainError(
+      'CACHE_INVALIDATION_FAILED',
+      `The change was saved, but cached access decisions could not be cleared; they expire within ${this.config.env.EFFECTIVE_PERMISSION_CACHE_TTL_SECONDS} seconds`,
+      503,
+    );
   }
 
   private key(version: string, itsId: string, clientId: string): string {
