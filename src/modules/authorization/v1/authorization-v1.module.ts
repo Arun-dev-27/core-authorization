@@ -1,10 +1,11 @@
 import { Module } from '@nestjs/common';
+import { SigningModule } from '@modules/signing/signing.module';
 import { AuthorizationServicesModule } from '../authorization-services.module';
 import { AuthorizationController } from './authorization.controller';
 
 /** Authorization decisions and effective permissions — v1 HTTP edge. */
 @Module({
-  imports: [AuthorizationServicesModule],
+  imports: [AuthorizationServicesModule, SigningModule],
   controllers: [AuthorizationController],
 })
 export class AuthorizationV1Module {}

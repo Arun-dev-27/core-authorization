@@ -15,6 +15,7 @@ import { MeModule } from '@modules/me/me.module';
 import { ModulesModule } from '@modules/modules/modules.module';
 import { RbacModule } from '@modules/rbac/rbac.module';
 import { RolesModule } from '@modules/roles/roles.module';
+import { SigningModule } from '@modules/signing/signing.module';
 import { TenantsModule } from '@modules/tenants/tenants.module';
 import { UsersModule } from '@modules/users/users.module';
 import { UtilitiesModule } from '@modules/utilities/utilities.module';
@@ -28,6 +29,7 @@ import { UtilitiesModule } from '@modules/utilities/utilities.module';
     AuditModule,
     RbacModule,
     AuthModule,
+    SigningModule, // own RS256 key + /.well-known/jwks.json (separate from Identity's keys)
     HealthModule,
     // Core RBAC: tenants → business units → utilities; modules → permissions; roles; users × roles × scopes
     TenantsModule,

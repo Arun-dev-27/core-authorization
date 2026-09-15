@@ -12,7 +12,7 @@ import { createServer, Server } from 'node:http';
 import { AddressInfo } from 'node:net';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import Redis from 'ioredis';
-import { exportJWK, generateKeyPair, KeyLike, SignJWT } from 'jose';
+import { createLocalJWKSet, exportJWK, generateKeyPair, jwtVerify, KeyLike, SignJWT } from 'jose';
 import { DataSource } from 'typeorm';
 import { loadEnv } from '@config/configuration';
 import { buildDataSourceOptions } from '@core/database/data-source-options';
@@ -563,6 +563,28 @@ describe('BU application authorization on Core RBAC', () => {
     const eff = await svc('ops-automation', 'POST', '/authorization/effective-permissions', { its_id: DEMO.core, client_id: 'core-portal-prod' });
     expect(eff.body).toMatchObject({ access: 'GRANTED', roles: [{ role_name: 'Platform Administrator', scope_type: 'CORE', scope_id: null }] });
     expect(eff.body.permissions).toEqual(expect.arrayContaining(['BUSINESS_UNIT_MGMT_CREATE', 'CONFIGURATION_EDIT']));
+  });
+
+  it("signs the result as an authorization token that verifies only with this service's own JWKS (not Identity's keys)", async () => {
+    const jwks = await call('GET', '/.well-known/jwks.json', null);
+    expect(jwks.status).toBe(200);
+    expect(jwks.body.keys).toHaveLength(1);
+    expect(Object.keys(jwks.body.keys[0]).sort()).toEqual(['alg', 'e', 'kid', 'kty', 'n', 'use']);
+    expect(jwks.body.keys[0].kid).not.toBe(signers.identity.kid);
+
+    const res = await svc('ops-automation', 'POST', '/authorization/token', { its_id: DEMO.core, client_id: 'core-portal-prod' });
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ token_type: 'authz+jwt', access: 'GRANTED', kid: jwks.body.keys[0].kid, expires_in: expect.any(Number) });
+    const { payload, protectedHeader } = await jwtVerify(res.body.authorization_token, createLocalJWKSet(jwks.body), { audience: 'core-portal-prod', typ: 'authz+jwt', algorithms: ['RS256'] });
+    expect(protectedHeader).toMatchObject({ alg: 'RS256', typ: 'authz+jwt' });
+    expect(payload).toMatchObject({ sub: DEMO.core, aud: 'core-portal-prod', access: 'GRANTED', application: 'core-portal' });
+    expect(payload.permissions).toEqual(expect.arrayContaining(['CONFIGURATION_EDIT']));
+    await expect(jwtVerify(res.body.authorization_token, createLocalJWKSet({ keys: [signers.identity.jwk as never] }))).rejects.toThrow();
+
+    const meta = await call('GET', '/.well-known/miqaat-authorization', null);
+    expect(meta.body).toMatchObject({ authorization_token_type: 'authz+jwt', authentication_jwks_uri: expect.stringContaining('/identity') });
+    expect((await svc('rms-backend', 'POST', '/authorization/token', { its_id: DEMO.core, client_id: 'core-portal-prod' })).body.error).toBe('CLIENT_NOT_PERMITTED_FOR_PRINCIPAL');
+    expect((await call('POST', '/authorization/token', null, { its_id: DEMO.core, client_id: 'core-portal-prod' })).status).toBe(401);
   });
 
   it('restricts BU backends to their clients and applies suspension immediately', async () => {

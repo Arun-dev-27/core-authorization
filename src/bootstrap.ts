@@ -45,7 +45,8 @@ export async function createApp(env: Env = loadEnv()): Promise<NestFastifyApplic
   fastify.addHook('onSend', (request, reply, _payload, done) => {
     if (!request.url.startsWith('/docs')) {
       void reply.header('content-security-policy', "default-src 'none'; frame-ancestors 'none'");
-      void reply.header('cache-control', 'no-store');
+      // public keys may be cached by verifiers; everything else is no-store
+      if (!request.url.startsWith('/.well-known/')) void reply.header('cache-control', 'no-store');
     }
     done();
   });

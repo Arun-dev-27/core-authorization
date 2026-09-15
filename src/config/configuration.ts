@@ -40,13 +40,30 @@ export const envSchema = z
     SERVICE_TOKEN_MAX_LIFETIME_SECONDS: z.coerce.number().int().min(30).max(900).default(300),
     ACCESS_TOKEN_MAX_LIFETIME_SECONDS: z.coerce.number().int().min(60).max(3600).default(900),
     JWT_CLOCK_TOLERANCE_SECONDS: z.coerce.number().int().min(0).max(60).default(5),
+
+    // Authorization's OWN signing key, separate from Identity's: signs authorization tokens (typ authz+jwt),
+    // public key published at GET /.well-known/jwks.json of this service.
+    /** `iss` of authorization tokens and base of this service's JWKS URI. */
+    AUTHZ_ISSUER: z
+      .string()
+      .url()
+      .transform((v) => v.replace(/\/+$/, ''))
+      .default('http://localhost:3002'),
+    /** PKCS#8 PEM (escaped \n allowed). Production: inject from a secret store (e.g. SSM Standard SecureString). */
+    AUTHZ_SIGNING_PRIVATE_KEY: z.string().min(1).optional(),
+    /** Development only: key file generated on first start when AUTHZ_SIGNING_PRIVATE_KEY is not set. */
+    AUTHZ_SIGNING_KEY_FILE: z.string().min(1).default('.keys/authorization-signing.pem'),
+    AUTHORIZATION_TOKEN_TTL_SECONDS: z.coerce.number().int().min(30).max(900).default(300),
   })
   .superRefine((env, ctx) => {
     if (env.NODE_ENV === 'production') {
       if (env.ALLOW_INSECURE_LOCALHOST_URIS) {
         ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['ALLOW_INSECURE_LOCALHOST_URIS'], message: 'must be false in production' });
       }
-      for (const key of ['IDENTITY_ISSUER', 'IDENTITY_JWKS_URI'] as const) {
+      if (!env.AUTHZ_SIGNING_PRIVATE_KEY) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['AUTHZ_SIGNING_PRIVATE_KEY'], message: 'is required in production (no generated key files)' });
+      }
+      for (const key of ['IDENTITY_ISSUER', 'IDENTITY_JWKS_URI', 'AUTHZ_ISSUER'] as const) {
         if (!env[key].startsWith('https://')) ctx.addIssue({ code: z.ZodIssueCode.custom, path: [key], message: 'must use https in production' });
       }
     }
