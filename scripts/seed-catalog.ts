@@ -96,6 +96,20 @@ const APPLICATIONS: AppSeed[] = [
     roles: [{ name: 'Mumin Member', level: 'BUSINESS_UNIT', permissions: '*' }],
   },
   {
+    // separate login page application (core-authentication: npm run example:login -> http://localhost:3100)
+    code: 'login-page',
+    name: 'Miqaat Login Page',
+    bu: 'Core Services',
+    clientPrefix: 'login-web',
+    devPort: 3100,
+    hosts: { UAT: 'https://login-uat.example.com', PROD: 'https://login.example.com' },
+    modules: [{ code: 'LOGIN_PROFILE', name: 'Login Profile', actions: ['view', 'edit'] }],
+    roles: [
+      { name: 'Login Page User', level: 'BUSINESS_UNIT', permissions: '*' },
+      { name: 'Login Page Viewer', level: 'BUSINESS_UNIT', permissions: ['LOGIN_PROFILE_VIEW'] },
+    ],
+  },
+  {
     code: 'core-portal',
     name: 'Core Portal',
     clientPrefix: 'core-portal',
@@ -223,6 +237,7 @@ async function main() {
           { id: 'rms-backend', name: 'RMS Web backend', jwks: 'http://localhost:4001/.well-known/jwks.json', scopes: ['AUTHZ_CHECK'], clients: ['rms-web-dev', 'rms-web-uat', 'rms-web-prod'] },
           { id: 'ams-backend', name: 'AMS Web backend', jwks: 'http://localhost:4002/.well-known/jwks.json', scopes: ['AUTHZ_CHECK'], clients: ['ams-web-dev', 'ams-web-uat', 'ams-web-prod'] },
           { id: 'vms-backend', name: 'VMS Web backend', jwks: 'http://localhost:4003/.well-known/jwks.json', scopes: ['AUTHZ_CHECK'], clients: ['vms-web-dev', 'vms-web-uat', 'vms-web-prod'] },
+          { id: 'login-backend', name: 'Miqaat Login Page backend', jwks: 'http://localhost:3100/.well-known/jwks.json', scopes: ['AUTHZ_CHECK'], clients: ['login-web-dev', 'login-web-uat', 'login-web-prod'] },
         ]
       : []),
   ];

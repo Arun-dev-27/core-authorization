@@ -24,6 +24,7 @@ const NAMED: Record<string, Grant[]> = {
     ['Utility Admin', 'UTILITY', 'Helpdesk'],
     ['Utility Admin', 'UTILITY', 'Zone Support'],
     ['Business Unit Admin', 'BUSINESS_UNIT', 'RMS'],
+    ['Login Page Viewer', 'BUSINESS_UNIT', 'Core Services'], // can open the separate login page (:3100)
   ],
   '31278901': [['Utility Sub-Level Admin', 'UTILITY', 'Helpdesk']],
   // developer account used by the live federation tests
@@ -33,6 +34,7 @@ const NAMED: Record<string, Grant[]> = {
     ['AMS User Admin', 'UTILITY', 'AMS'],
     ['VMS Viewer', 'BUSINESS_UNIT', 'VMS'],
     ['Mumin Member', 'BUSINESS_UNIT', 'Mumin Services'],
+    ['Login Page User', 'BUSINESS_UNIT', 'Core Services'],
   ],
 };
 
