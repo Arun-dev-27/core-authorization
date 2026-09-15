@@ -86,9 +86,11 @@ BU applications check them server-side through `POST /authorization/check`, usin
 
 ## Login → workspace → permissions
 
-1. Identity `POST /login` → `{its_id, name, token, requires_scope_selection, assignments[]}` (from `user_roles` joined to scope names).
-2. Identity `POST /select-scope {role_id, scope_type, scope_id}` → re-validated here (`/internal/federation/assignments/resolve`)
-   → `{active_scope, token}`. The token carries only `role_id`, `scope_type` and `scope_id`.
+1. Identity `POST /login` → login envelope `{success, session, request_id, timestamp, scope, error}`. `session.roles[]` lists every
+   workspace (from `user_roles` joined to scope names) and `session.role_type` is `SINGLE`, `MULTI` or `NONE`. With exactly one role
+   it is activated at once (`active_role`, `modules`, `permissions`, scoped token); otherwise the token is unscoped.
+2. Identity `POST /select-scope {role_id, scope_type, scope_id, audience}` → re-validated here (`/internal/federation/assignments/resolve`)
+   → the same envelope with `session.active_role`, `modules`, `permissions` and a token carrying only `role_id`, `scope_type` and `scope_id`.
 3. `GET /me/permissions` → `{MODULE_CODE: [actions]}` for the active role, ordered like the sidebar. A missing key means the module is hidden.
 4. Switch Workspace repeats step 2. No logout, no DB change.
 
@@ -101,7 +103,9 @@ BU applications check them server-side through `POST /authorization/check`, usin
    CORE covers everything; a BU covers itself and its utilities; a utility covers itself
 5. their role permissions in modules owned by this application → permission held → `allowed`, otherwise `PERMISSION_DENIED` / `MODULE_MISMATCH`
 
-Results are cached per `(its_id, client_id)` and invalidated immediately on any RBAC change.
+Results are cached per `(its_id, client_id)` and invalidated immediately on any RBAC or client change, including a role rename.
+If Redis refuses the invalidation (after 3 attempts), the change is still saved but the request returns
+`503 CACHE_INVALIDATION_FAILED`; cached decisions then expire within `EFFECTIVE_PERMISSION_CACHE_TTL_SECONDS` (default 60).
 
 ## Seed data (local)
 

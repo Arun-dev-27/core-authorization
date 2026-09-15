@@ -18,9 +18,8 @@ src/
   main.ts · bootstrap.ts · app.module.ts
   config/                configuration.ts (zod env schema + .env loading) · config.module.ts (AppConfig)
   common/
-    constants/           api-version (API_V1) · api-scopes · client · record-status · validation patterns
-    decorators/          @Public() · @RequireScopes() · @AdminResource()
-    dto/                 StatusQueryDto
+    constants/           api-version (API_V1) · api-scopes · client · rbac (scope levels, actions, record/user statuses, 14 default modules) · validation patterns
+    decorators/          @Public() · @RequireScopes() · rbac: @RequirePermission() @RequireActiveScope() @AllowUnscopedUser() @RequireCoreScope() @Actor()
     errors/ filters/     DomainError · global exception filter
     logging/             pino with redaction · request context (correlation id, actor)
     utils/               uri-policy (origin / redirect URI validation)
@@ -31,9 +30,17 @@ src/
     health/              liveness / readiness
   modules/
     auth/                services/ (JWKS resolver, service principals, token verifier) · guards/ (global JwtAuthGuard)
-    catalog/             code → id lookups shared by catalog features
-    authorization/ business-units/ utilities/ environments/ applications/ app-modules/
-    roles/ permissions/ users/ access/ clients/ federation/
+    rbac/                services/ RbacService (workspaces, scope rules, no-escalation checks) · seed/ (system roles, default modules, matrix)
+    signing/             own RS256 signing key · /.well-known/jwks.json · /.well-known/miqaat-authorization
+    authorization/       decision engine + effective-permission cache · /authorization/check, /effective-permissions, /token
+    tenants/ business-units/ utilities/ environments/ applications/
+    modules/             /modules and /permissions
+    roles/               /roles and /role-permissions
+    users/               /users, /users/sync and /user-roles
+    me/                  /me, /me/assignments, /me/permissions
+    clients/             client registry, lifecycle, origins, callbacks
+    federation/          internal API for Identity Federation (/internal/federation/*)
+    feature modules (all except auth, rbac, signing) use this layout:
       services/                        version-agnostic domain logic (+ <feature>.types.ts service inputs)
       <feature>-services.module.ts     the shared-services seam (reused by any /vN edge)
       <feature>.module.ts              feature aggregator
@@ -180,6 +187,23 @@ A moving `last_used_at` for `identity-federation` and `200` responses on `/inter
 works. Identity's `/health/ready` `"authorization_service": "up"` only proves this service is reachable. Symptoms and fixes:
 `../core-authentication/README.md` section 1.1.
 
+## Own signing key and JWKS (separate from Identity)
+
+This service signs its authorization results with its **own** RS256 key; Identity's keys are only for authentication.
+
+| Endpoint | Auth | What |
+|---|---|---|
+| `GET /.well-known/jwks.json` | public | public key(s), `kid` `authz-…`, cacheable 5 minutes |
+| `GET /.well-known/miqaat-authorization` | public | issuer, JWKS URI, token endpoint, token lifetime, and Identity's issuer/JWKS for authentication |
+| `POST /authorization/token` | service token (`AUTHZ_CHECK`, own clients only) | `{ its_id, client_id }` → `authorization_token` (typ `authz+jwt`, `iss` = `AUTHZ_ISSUER`, `aud` = client_id, `sub` = ITS ID, `access`, `reason`, `roles`, `modules`, `permissions`, 300 s). Denied results are signed too. |
+
+`POST /authorization/check` and `POST /authorization/effective-permissions` are unchanged.
+
+Key source: `AUTHZ_SIGNING_PRIVATE_KEY` (PKCS#8 PEM, required in production, e.g. from SSM Parameter Store Standard SecureString);
+in development a 3072-bit key is generated once into `AUTHZ_SIGNING_KEY_FILE` (`.keys/authorization-signing.pem`, git-ignored).
+Applications verify `authorization_token` with this JWKS and `core_assertion` with Identity's JWKS; see `../README.md` and the
+separate login page `../core-authentication/examples/login-page` (client `login-web-dev`, service principal `login-backend`).
+
 ## Postman
 
 Import `postman/miqaat-authorization.postman_collection.json`. Sign in first with the Identity collection
@@ -190,6 +214,12 @@ Create requests store `tenant_id`, `bu_id`, `utility_id`, `role_id` and `client_
 Order: **Organisation** → **Applications** → **Roles & permissions** → **Clients** (create, origins, callbacks, status, Apply in Identity) →
 **Users & assignments**. The service-token folders need a single-use token signed by the calling principal
 (`federation_service_token`, `bu_service_token`).
+
+All 70 requests carry saved example responses (204 in total: success, errors and edge cases such as `CORE_SCOPE_REQUIRED`,
+`SCOPE_SELECTION_REQUIRED`, duplicates, unknown ids, `INVALID_ORIGIN`, `ORIGIN_NOT_REGISTERED`, `CLIENT_CONFIGURATION_INCOMPLETE`,
+`INVALID_CLIENT_STATUS_TRANSITION`, `CLIENT_RETIRED`, `ASSIGNMENT_EXISTS`, and every `allowed: false` reason of the permission check).
+Each request description gives its purpose, when to use it and what it needs. Denials with a Business Unit Admin token were captured on
+the dev stack; CORE administrator successes on the isolated test database (`miqaat_authz_test`), so dev data was not changed.
 
 ## Setup
 
