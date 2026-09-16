@@ -17,6 +17,7 @@
     "migration:run:prod": "node node_modules/typeorm/cli.js migration:run -d dist/core/database/data-source.js",
     "seed": "node -r ts-node/register/transpile-only -r tsconfig-paths/register scripts/seed-catalog.ts",
     "seed:access": "node -r ts-node/register/transpile-only -r tsconfig-paths/register scripts/seed-user-access.ts",
+    "seed:miqaat-core-demo": "node -r ts-node/register/transpile-only -r tsconfig-paths/register scripts/seed-miqaat-core-demo.ts",
     "openapi:export": "node -r ts-node/register/transpile-only -r tsconfig-paths/register scripts/export-openapi.ts",
     "test": "node node_modules/jest/bin/jest.js",
     "test:e2e": "node --experimental-vm-modules node_modules/jest/bin/jest.js --config test/jest-e2e.json --runInBand --forceExit",

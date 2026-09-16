@@ -41,6 +41,33 @@ export async function createApp(env: Env = loadEnv()): Promise<NestFastifyApplic
     requestContext.run({ correlationId: request.id }, done);
   });
 
+  // /authorization/session[/me|/logout|/select] is called directly from a Business Unit's browser: first
+  // with the core_assertion it just received, then (if the ITS ID holds more than one role) with the
+  // chosen role_id, then (on later page loads) to resolve or clear its own local session cookie.
+  // Credentialed (the cookie must round-trip cross-origin), so both an exact reflected Origin AND
+  // allow-credentials are required - the actual trust decision (assertion signature, then session-token
+  // lookup) is enforced inside each handler regardless of CORS. No other route gets this treatment.
+  fastify.addHook('onRequest', (request, reply, done) => {
+    const path = request.url.split('?')[0];
+    const isSessionEndpoint = /^\/(v1\/)?authorization\/session(\/(me|logout|select))?$/.test(path);
+    const origin = request.headers.origin;
+    if (isSessionEndpoint && typeof origin === 'string') {
+      void reply.header('access-control-allow-origin', origin);
+      void reply.header('access-control-allow-credentials', 'true');
+      void reply.header('vary', 'origin');
+      if (request.method === 'OPTIONS') {
+        reply
+          .header('access-control-allow-methods', 'GET, POST, OPTIONS')
+          .header('access-control-allow-headers', 'content-type')
+          .header('access-control-max-age', '600')
+          .code(204)
+          .send();
+        return;
+      }
+    }
+    done();
+  });
+
   await app.register(helmet as never, { contentSecurityPolicy: false, crossOriginEmbedderPolicy: false });
   fastify.addHook('onSend', (request, reply, _payload, done) => {
     if (!request.url.startsWith('/docs')) {

@@ -9,6 +9,6 @@ import { TokenVerifier } from './services/token-verifier.service';
 @Global()
 @Module({
   providers: [JwksResolver, ServicePrincipalService, TokenVerifier, { provide: APP_GUARD, useClass: JwtAuthGuard }],
-  exports: [TokenVerifier, ServicePrincipalService],
+  exports: [TokenVerifier, ServicePrincipalService, JwksResolver],
 })
 export class AuthModule {}
