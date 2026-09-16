@@ -8,7 +8,7 @@ import { GlobalExceptionFilter } from '@common/filters/http-exception.filter';
 import { PinoNestLogger, createLogger, genRequestId } from '@common/logging/logger';
 import { requestContext } from '@common/logging/request-context';
 import { AppModule } from './app.module';
-import { configureClientIpHeader } from '@common/security/session-binding';
+import { configureClientIpHeader, configureSessionBinding } from '@common/security/session-binding';
 
 export function buildOpenApiConfig() {
   return new DocumentBuilder()
@@ -36,6 +36,7 @@ export async function createApp(env: Env = loadEnv()): Promise<NestFastifyApplic
   // Set before any request is served, so session binding reads the same source everywhere.
 
   configureClientIpHeader(env.CLIENT_IP_HEADER ?? null);
+  configureSessionBinding(env.SESSION_BINDING);
 
   const app = await NestFactory.create<NestFastifyApplication>(AppModule, adapter, { bufferLogs: true });
   app.useLogger(new PinoNestLogger(logger));
