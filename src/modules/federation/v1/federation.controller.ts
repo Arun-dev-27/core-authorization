@@ -4,8 +4,11 @@ import { API_V1 } from '@common/constants/api-version.constants';
 import { CLIENT_ID, ENVIRONMENT_CODE, ITS_ID } from '@common/constants/validation.constants';
 import { RequireScopes } from '@common/decorators/require-scopes.decorator';
 import { DomainError } from '@common/errors/domain-error';
+import { SessionRevocationService } from '@modules/auth/services/session-revocation.service';
 import { ClientsService } from '@modules/clients/services/clients.service';
 import { FederationDirectoryService } from '../services/federation-directory.service';
+import { LocalSessionService } from '../services/local-session.service';
+import { CORE_SID, RecordSessionDto } from './dto/record-session.dto';
 import { ResolveAssignmentDto } from './dto/resolve-assignment.dto';
 
 /**
@@ -19,6 +22,8 @@ export class FederationController {
   constructor(
     private readonly clients: ClientsService,
     private readonly directory: FederationDirectoryService,
+    private readonly revocation: SessionRevocationService,
+    private readonly localSessions: LocalSessionService,
   ) {}
 
   @Get('clients/:clientId')
@@ -53,5 +58,33 @@ export class FederationController {
     if (!ITS_ID.test(itsId)) throw new DomainError('INVALID_ITS_ID', 'Invalid ITS ID');
     if (!ENVIRONMENT_CODE.test(environment ?? '')) throw new DomainError('INVALID_ENVIRONMENT', 'environment is required');
     return this.directory.launchableApplications(itsId, environment);
+  }
+
+  /**
+   * A user signed in and selected a workspace. The session is recorded in the Core Admin Control Panel
+   * model (miqaat_core.user_sessions) so it has the durable history its data model calls for; no password,
+   * assertion or token is stored, only a hash and the federation sid.
+   */
+  @Post('sessions')
+  @HttpCode(201)
+  @RequireScopes('FEDERATION')
+  @ApiOperation({ summary: 'Record a signed-in session (miqaat_core.user_sessions) for a selected workspace' })
+  recordSession(@Body() dto: RecordSessionDto) {
+    return this.localSessions.record(dto);
+  }
+
+  /**
+   * Identity ended a session (logout, sign-out everywhere, administrator force logout, user switch,
+   * re-authentication). Access tokens carrying this sid are refused here from now on, until they expire,
+   * and every local session recorded under it is marked revoked.
+   */
+  @Post('sessions/:sid/revoke')
+  @HttpCode(200)
+  @RequireScopes('FEDERATION')
+  @ApiOperation({ summary: 'Mark an Identity session as signed out, so its access tokens stop working here too' })
+  async revokeSession(@Param('sid') sid: string) {
+    if (!CORE_SID.test(sid)) throw new DomainError('INVALID_SID', 'Invalid session id');
+    const revoked = await this.revocation.revoke(sid);
+    return { ...revoked, local_sessions_revoked: await this.localSessions.revokeByCoreSid(sid) };
   }
 }

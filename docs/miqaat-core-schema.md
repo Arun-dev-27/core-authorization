@@ -18,9 +18,21 @@ npm run migration:revert   # drops it again (DROP SCHEMA miqaat_core CASCADE)
 |---|---|---|
 | 1. Tenants and domains | `tenants`, `tenant_domains`, `tenant_domain_credentials`, `tenant_core_credentials`, `platform_settings`, `tenant_rate_limits` | — |
 | 2. Modules, roles, permissions | `modules`, `permission_actions`, `module_actions`, `roles`, `role_permissions` | — |
-| 3. Users and auth | `users`, `user_roles` | `user_sessions`, `login_otp_codes` (login is out of scope) |
+| 3. Users and auth | `users`, `user_roles`, `user_sessions`, `login_otp_codes` | — |
 
-**Non-ITS members are out of scope:** `users.its_id` is `NOT NULL` and must be exactly 8 digits.
+**Non-ITS members are supported.** `users.its_id` is nullable: `NULL` marks a Non-ITS member who signs in with an email
+address and a one-time code, while an ITS member's value is still exactly 8 digits and unique. Sessions, one-time codes
+and the nullable ITS ID were added by `src/core/database/migrations/1789700000000-MiqaatCoreLoginSchema.ts`.
+
+| Table | Holds | Rules enforced in the database |
+|---|---|---|
+| `user_sessions` | one signed-in session, acting as exactly one role for its whole lifetime (FR-1.3) | `session_token` unique; `core_sid` and `aud` are set together and are `NULL` for a local Non-ITS session; `expires_at > created_at`; live = `revoked_at IS NULL AND expires_at > now()`; rows disappear with their user or role |
+| `login_otp_codes` | Non-ITS email one-time codes (FR-1.2) | `code_hash` only, never the code itself; `expires_at > created_at`; `attempt_count >= 0`; `consumed_at` marks the code as used; rows disappear with their user |
+
+Credentials are still never stored here. ITS ID and password are verified by the Core Federation Identity Service, and this
+database records only the outcome: `user_sessions.core_sid` (the assertion's `sid`, the key a back-channel logout revokes by)
+and `user_sessions.aud` (the federation client id). One federation session may back several local sessions, so `core_sid`
+is deliberately not unique.
 
 ## Enums
 

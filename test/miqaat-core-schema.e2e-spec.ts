@@ -27,7 +27,7 @@ let seq = 0;
 const itsId = () => String(40000000 + ++seq);
 const createUser = async (overrides: Record<string, unknown> = {}) =>
   (await one<{ id: string }>(`INSERT INTO ${S}.users (its_id, name, email) VALUES ($1, $2, $3) RETURNING id`, [
-    overrides.its_id ?? itsId(),
+    overrides.its_id === undefined ? itsId() : overrides.its_id,
     overrides.name ?? 'Test Member',
     overrides.email ?? `member${++seq}@example.test`,
   ]))!.id;
@@ -46,10 +46,33 @@ const moduleAction = async (module: string, action: string) =>
     [module, action],
   ))?.id;
 
+/** One signed-in session. Defaults describe an ITS (federation) session; pass core_sid: null for a local Non-ITS one. */
+let tokenSeq = 0;
+const createSession = async (userId: string, roleId: string, overrides: Record<string, unknown> = {}) =>
+  (await one<{ id: string }>(
+    `INSERT INTO ${S}.user_sessions (user_id, role_id, core_sid, aud, session_token, ip_address, user_agent, expires_at, revoked_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`,
+    [
+      userId,
+      roleId,
+      overrides.core_sid === undefined ? `sid_core_${++tokenSeq}` : overrides.core_sid,
+      overrides.aud === undefined ? (overrides.core_sid === null ? null : 'core-admin-web-prod') : overrides.aud,
+      overrides.session_token ?? `session_token_${++tokenSeq}`,
+      overrides.ip_address ?? '203.0.113.10',
+      overrides.user_agent ?? 'Mozilla/5.0 (test)',
+      overrides.expires_at ?? new Date(Date.now() + 3600_000).toISOString(),
+      overrides.revoked_at ?? null,
+    ],
+  ))!.id;
+const liveSessions = async (userId: string) =>
+  (await one<{ n: string }>(`SELECT count(*) n FROM ${S}.user_sessions WHERE user_id = $1 AND revoked_at IS NULL AND expires_at > now()`, [userId]))!.n;
+
 beforeAll(async () => {
   db = new DataSource(buildDataSourceOptions(loadEnv()));
   await db.initialize();
   await db.runMigrations();
+  await db.query(`DELETE FROM ${S}.login_otp_codes`);
+  await db.query(`DELETE FROM ${S}.user_sessions`);
   await db.query(`DELETE FROM ${S}.user_roles`);
   await db.query(`DELETE FROM ${S}.role_permissions WHERE role_id IN (SELECT id FROM ${S}.roles WHERE role_code <> $1)`, [PLATFORM_ROLE]);
   await db.query(`DELETE FROM ${S}.roles WHERE role_code <> $1`, [PLATFORM_ROLE]);
@@ -63,14 +86,15 @@ afterAll(async () => {
 });
 
 describe('miqaat_core schema', () => {
-  it('exists next to the unchanged public schema, without login and Non-ITS tables', async () => {
+  it('exists next to the unchanged public schema, with the login tables of file 3', async () => {
     const tables = (await rows<{ table_name: string }>(`SELECT table_name FROM information_schema.tables WHERE table_schema = $1 ORDER BY 1`, [S])).map((r) => r.table_name);
-    expect(tables).toEqual([
-      'module_actions', 'modules', 'permission_actions', 'platform_settings', 'role_permissions', 'roles',
-      'tenant_core_credentials', 'tenant_domain_credentials', 'tenant_domains', 'tenant_rate_limits', 'tenants', 'user_roles', 'users',
-    ]);
-    expect(tables).not.toContain('user_sessions');
-    expect(tables).not.toContain('login_otp_codes');
+    expect([...tables].sort()).toEqual(
+      [
+        'login_otp_codes', 'module_actions', 'modules', 'permission_actions', 'platform_settings', 'role_permissions', 'roles',
+        'tenant_core_credentials', 'tenant_domain_credentials', 'tenant_domains', 'tenant_rate_limits', 'tenants', 'user_roles',
+        'user_sessions', 'users',
+      ].sort(),
+    );
     const publicTenants = (await rows<{ column_name: string }>(`SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'tenants'`)).map((r) => r.column_name);
     expect(publicTenants).toContain('tenant_id');
     expect(publicTenants).not.toContain('tenant_type');
@@ -82,6 +106,20 @@ describe('miqaat_core schema', () => {
     expect(await values('role_level')).toEqual(['CORE_ADMIN', 'BUSINESS_UNIT_ADMIN', 'UTILITY_ADMIN']);
     expect(await values('user_status')).toEqual(['INVITED', 'ACTIVE', 'DISABLED']);
     expect((await one<{ ok: boolean }>(`SELECT 'PROVIDE_KEY'::${S}.onboarding_stage >= 'VERIFY_DETAILS' AS ok`))!.ok).toBe(true);
+  });
+
+  it('stores no password, assertion or token material for sign-in', async () => {
+    const suspicious = await rows<{ table_name: string; column_name: string }>(
+      `SELECT table_name, column_name FROM information_schema.columns
+        WHERE table_schema = $1
+          AND (column_name ILIKE '%password%' OR column_name ILIKE '%pwd%' OR column_name ILIKE '%assertion%'
+               OR (table_name = 'login_otp_codes' AND column_name = 'code'))`,
+      [S],
+    );
+    expect(suspicious).toEqual([]);
+    const otpColumns = (await rows<{ column_name: string }>(`SELECT column_name FROM information_schema.columns WHERE table_schema = $1 AND table_name = 'login_otp_codes'`, [S])).map((r) => r.column_name);
+    expect(otpColumns).toContain('code_hash');
+    expect(otpColumns).not.toContain('code');
   });
 });
 
@@ -218,8 +256,7 @@ describe('roles and the permission matrix', () => {
 });
 
 describe('users and role assignment', () => {
-  it('accepts ITS members only: 8-digit ITS ID required, unique email, Active implies has_been_active', async () => {
-    expect(await errorCode(`INSERT INTO ${S}.users (name, email) VALUES ('Non ITS', 'nonits@example.test')`)).toBe('23502');
+  it('accepts ITS members and Non-ITS members: 8 digits when present, unique email, Active implies has_been_active', async () => {
     expect(await errorCode(`INSERT INTO ${S}.users (its_id, name, email) VALUES ('1234567', 'x', 'short@example.test')`)).toBe('23514');
     expect(await errorCode(`INSERT INTO ${S}.users (its_id, name, email) VALUES ('ITS12345', 'x', 'letters@example.test')`)).toBe('23514');
     const id = await createUser({ email: 'unique@example.test' });
@@ -227,6 +264,17 @@ describe('users and role assignment', () => {
     expect((await one<{ status: string }>(`SELECT status FROM ${S}.users WHERE id = $1`, [id]))!.status).toBe('INVITED');
     expect(await errorCode(`UPDATE ${S}.users SET status = 'ACTIVE' WHERE id = $1`, [id])).toBe('23514');
     await db.query(`UPDATE ${S}.users SET status = 'ACTIVE', has_been_active = true, last_login_at = now() WHERE id = $1`, [id]);
+  });
+
+  it('Non-ITS members have no ITS ID, and several may exist side by side', async () => {
+    const first = await createUser({ its_id: null, email: 'nonits1@example.test' });
+    const second = await createUser({ its_id: null, email: 'nonits2@example.test' });
+    expect((await one<{ its_id: string | null }>(`SELECT its_id FROM ${S}.users WHERE id = $1`, [first]))!.its_id).toBeNull();
+    expect((await one<{ n: string }>(`SELECT count(*) n FROM ${S}.users WHERE id = ANY($1) AND its_id IS NULL`, [[first, second]]))!.n).toBe('2');
+    // the ITS ID stays unique for the members that do have one
+    const its = itsId();
+    await createUser({ its_id: its, email: 'itsunique@example.test' });
+    expect(await errorCode(`INSERT INTO ${S}.users (its_id, name, email) VALUES ($1, 'dup', 'itsdup@example.test')`, [its])).toBe('23505');
   });
 
   it('copies tenant and level from the role, one role per tenant, one Core Admin role, roles across tenants allowed', async () => {
@@ -256,5 +304,138 @@ describe('users and role assignment', () => {
     expect((await one<{ n: string }>(`SELECT count(*) n FROM ${S}.user_roles WHERE user_id = $1`, [member]))!.n).toBe('2');
     await db.query(`DELETE FROM ${S}.users WHERE id = $1`, [admin]);
     expect((await one<{ assigned_by: string | null }>(`SELECT assigned_by FROM ${S}.user_roles WHERE user_id = $1 AND role_id = $2`, [member, roleA1]))!.assigned_by).toBeNull();
+  });
+});
+
+describe('local sessions (user_sessions)', () => {
+  it('records an ITS federation session with core_sid and aud, and a local Non-ITS session with neither', async () => {
+    const tenant = await createTenant('BUSINESS_UNIT', 'Session Tenant');
+    const role = await createRole('BUSINESS_UNIT_ADMIN', tenant, 'role-session-admin');
+    const itsMember = await createUser({ email: 'session.its@example.test' });
+    const nonIts = await createUser({ its_id: null, email: 'session.local@example.test' });
+
+    const federated = await createSession(itsMember, role, { core_sid: 'sid_core_abc', aud: 'core-admin-web-prod' });
+    const local = await createSession(nonIts, role, { core_sid: null });
+
+    const rowFederated = await one<{ core_sid: string | null; aud: string | null; role_id: string; revoked_at: string | null }>(
+      `SELECT core_sid, aud, role_id, revoked_at FROM ${S}.user_sessions WHERE id = $1`,
+      [federated],
+    );
+    expect(rowFederated).toEqual({ core_sid: 'sid_core_abc', aud: 'core-admin-web-prod', role_id: role, revoked_at: null });
+    const rowLocal = await one<{ core_sid: string | null; aud: string | null }>(`SELECT core_sid, aud FROM ${S}.user_sessions WHERE id = $1`, [local]);
+    expect(rowLocal).toEqual({ core_sid: null, aud: null });
+    expect(await liveSessions(itsMember)).toBe('1');
+  });
+
+  it('keeps session_token unique but allows several local sessions for one federation sid', async () => {
+    const tenant = await createTenant('UTILITY', 'Session Tenant Two');
+    const role = await createRole('UTILITY_ADMIN', tenant, 'role-session-utility');
+    const user = await createUser({ email: 'session.tabs@example.test' });
+
+    await createSession(user, role, { core_sid: 'sid_two_tabs', session_token: 'token_tab_one' });
+    await createSession(user, role, { core_sid: 'sid_two_tabs', session_token: 'token_tab_two' });
+    expect((await one<{ n: string }>(`SELECT count(*) n FROM ${S}.user_sessions WHERE core_sid = 'sid_two_tabs'`))!.n).toBe('2');
+    expect(
+      await errorCode(
+        `INSERT INTO ${S}.user_sessions (user_id, role_id, session_token, expires_at) VALUES ($1, $2, 'token_tab_one', now() + interval '1 hour')`,
+        [user, role],
+      ),
+    ).toBe('23505');
+  });
+
+  it('counts a session as live only while it is neither expired nor revoked', async () => {
+    const tenant = await createTenant('BUSINESS_UNIT', 'Session Lifecycle');
+    const role = await createRole('BUSINESS_UNIT_ADMIN', tenant, 'role-session-lifecycle');
+    const user = await createUser({ email: 'session.lifecycle@example.test' });
+
+    const live = await createSession(user, role, { session_token: 'token_live' });
+    const expired = await createSession(user, role, { session_token: 'token_expired' });
+    // A session expires by time passing: both timestamps move back, so expires_at stays after created_at.
+    await db.query(`UPDATE ${S}.user_sessions SET created_at = now() - interval '2 hours', expires_at = now() - interval '1 hour' WHERE id = $1`, [expired]);
+    const revoked = await createSession(user, role, { session_token: 'token_revoked', revoked_at: new Date().toISOString() });
+    expect(await liveSessions(user)).toBe('1');
+
+    await db.query(`UPDATE ${S}.user_sessions SET revoked_at = now() WHERE id = $1`, [live]);
+    expect(await liveSessions(user)).toBe('0');
+    expect((await one<{ n: string }>(`SELECT count(*) n FROM ${S}.user_sessions WHERE id = ANY($1)`, [[live, expired, revoked]]))!.n).toBe('3');
+  });
+
+  it('back-channel logout revokes every live session of one federation sid, and leaves other sids alone', async () => {
+    const tenant = await createTenant('BUSINESS_UNIT', 'Session Backchannel');
+    const role = await createRole('BUSINESS_UNIT_ADMIN', tenant, 'role-session-backchannel');
+    const user = await createUser({ email: 'session.backchannel@example.test' });
+
+    await createSession(user, role, { core_sid: 'sid_logout_me', session_token: 'token_bc_one' });
+    await createSession(user, role, { core_sid: 'sid_logout_me', session_token: 'token_bc_two' });
+    await createSession(user, role, { core_sid: 'sid_keep_me', session_token: 'token_bc_three' });
+
+    await db.query(`UPDATE ${S}.user_sessions SET revoked_at = now() WHERE core_sid = $1 AND revoked_at IS NULL`, ['sid_logout_me']);
+    expect((await one<{ n: string }>(`SELECT count(*) n FROM ${S}.user_sessions WHERE core_sid = 'sid_logout_me' AND revoked_at IS NULL`))!.n).toBe('0');
+    expect((await one<{ n: string }>(`SELECT count(*) n FROM ${S}.user_sessions WHERE core_sid = 'sid_keep_me' AND revoked_at IS NULL`))!.n).toBe('1');
+  });
+
+  it('rejects an impossible lifetime or a half-federated session, and disappears with its user or role', async () => {
+    const tenant = await createTenant('BUSINESS_UNIT', 'Session Constraints');
+    const role = await createRole('BUSINESS_UNIT_ADMIN', tenant, 'role-session-constraints');
+    const user = await createUser({ email: 'session.constraints@example.test' });
+
+    expect(
+      await errorCode(`INSERT INTO ${S}.user_sessions (user_id, role_id, session_token, expires_at) VALUES ($1, $2, 'token_past', now() - interval '1 minute')`, [user, role]),
+    ).toBe('23514');
+    expect(
+      await errorCode(
+        `INSERT INTO ${S}.user_sessions (user_id, role_id, aud, session_token, expires_at) VALUES ($1, $2, 'core-admin-web-prod', 'token_aud_only', now() + interval '1 hour')`,
+        [user, role],
+      ),
+    ).toBe('23514');
+    expect(
+      await errorCode(`INSERT INTO ${S}.user_sessions (user_id, role_id, session_token, expires_at) VALUES ($1, gen_random_uuid(), 'token_no_role', now() + interval '1 hour')`, [user]),
+    ).toBe('23503');
+
+    await createSession(user, role, { session_token: 'token_cascade_user' });
+    await db.query(`DELETE FROM ${S}.users WHERE id = $1`, [user]);
+    expect((await one<{ n: string }>(`SELECT count(*) n FROM ${S}.user_sessions WHERE user_id = $1`, [user]))!.n).toBe('0');
+
+    const other = await createUser({ email: 'session.cascade.role@example.test' });
+    await createSession(other, role, { session_token: 'token_cascade_role' });
+    await db.query(`DELETE FROM ${S}.roles WHERE id = $1`, [role]);
+    expect((await one<{ n: string }>(`SELECT count(*) n FROM ${S}.user_sessions WHERE role_id = $1`, [role]))!.n).toBe('0');
+  });
+});
+
+describe('Non-ITS one-time codes (login_otp_codes)', () => {
+  const insertCode = (userId: string, hash = 'hash:123456', expires = `now() + interval '10 minutes'`) =>
+    `INSERT INTO ${S}.login_otp_codes (user_id, code_hash, expires_at) VALUES ('${userId}', '${hash}', ${expires})`;
+
+  it('stores only a hash, starts unconsumed with zero attempts, and counts wrong tries', async () => {
+    const user = await createUser({ its_id: null, email: 'otp.member@example.test' });
+    await db.query(insertCode(user));
+    const code = await one<{ id: string; code_hash: string; consumed_at: string | null; attempt_count: number }>(
+      `SELECT id, code_hash, consumed_at, attempt_count FROM ${S}.login_otp_codes WHERE user_id = $1`,
+      [user],
+    );
+    expect(code).toMatchObject({ code_hash: 'hash:123456', consumed_at: null, attempt_count: 0 });
+
+    await db.query(`UPDATE ${S}.login_otp_codes SET attempt_count = attempt_count + 1 WHERE id = $1`, [code!.id]);
+    expect((await one<{ attempt_count: number }>(`SELECT attempt_count FROM ${S}.login_otp_codes WHERE id = $1`, [code!.id]))!.attempt_count).toBe(1);
+    expect(await errorCode(`UPDATE ${S}.login_otp_codes SET attempt_count = -1 WHERE id = $1`, [code!.id])).toBe('23514');
+
+    await db.query(`UPDATE ${S}.login_otp_codes SET consumed_at = now() WHERE id = $1`, [code!.id]);
+    expect((await one<{ n: string }>(`SELECT count(*) n FROM ${S}.login_otp_codes WHERE user_id = $1 AND consumed_at IS NULL AND expires_at > now()`, [user]))!.n).toBe('0');
+  });
+
+  it('allows a resent code next to the previous one and rejects an already expired code', async () => {
+    const user = await createUser({ its_id: null, email: 'otp.resend@example.test' });
+    await db.query(insertCode(user, 'hash:first'));
+    await db.query(insertCode(user, 'hash:second'));
+    expect((await one<{ n: string }>(`SELECT count(*) n FROM ${S}.login_otp_codes WHERE user_id = $1 AND consumed_at IS NULL`, [user]))!.n).toBe('2');
+    expect(await errorCode(insertCode(user, 'hash:past', `now() - interval '1 minute'`))).toBe('23514');
+  });
+
+  it('disappears with its user', async () => {
+    const user = await createUser({ its_id: null, email: 'otp.cascade@example.test' });
+    await db.query(insertCode(user));
+    await db.query(`DELETE FROM ${S}.users WHERE id = $1`, [user]);
+    expect((await one<{ n: string }>(`SELECT count(*) n FROM ${S}.login_otp_codes WHERE user_id = $1`, [user]))!.n).toBe('0');
   });
 });

@@ -11,6 +11,7 @@ import { requestContext } from '@common/logging/request-context';
 import { AuditService } from '@core/audit/audit.service';
 import { RbacService } from '@modules/rbac/services/rbac.service';
 import { ActorContext, Principal } from '@shared/types/principal.types';
+import { SessionRevocationService } from '../services/session-revocation.service';
 import { InvalidTokenError, TokenVerifier } from '../services/token-verifier.service';
 
 /**
@@ -35,6 +36,7 @@ export class JwtAuthGuard implements CanActivate {
     private readonly verifier: TokenVerifier,
     private readonly rbac: RbacService,
     private readonly audit: AuditService,
+    private readonly revocation: SessionRevocationService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -52,6 +54,9 @@ export class JwtAuthGuard implements CanActivate {
     // Label the actor before any authorization decision so denial audit records name the caller.
     const store = requestContext.getStore();
     if (store) store.actor = principal.kind === 'service' ? `svc:${principal.id}` : `user:${principal.itsId}`;
+
+    // Identity owns the session; a token whose session was signed out is refused here as well.
+    if (principal.kind === 'user' && principal.sid) await this.revocation.assertNotRevoked(principal.sid);
 
     const permission =this.reflector.getAllAndOverride<RequiredPermission>(PERMISSION_KEY, targets);
     const scopes = this.reflector.getAllAndOverride<ApiScope[]>(SCOPES_KEY, targets) ?? [];

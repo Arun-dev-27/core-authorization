@@ -135,11 +135,11 @@ interface Workspace {
   scopeId?: string | null;
 }
 
-async function userToken(itsId: string, ws?: Workspace, o: { signer?: Signer; iss?: string; aud?: string; typ?: string; tokenUse?: string } = {}) {
+async function userToken(itsId: string, ws?: Workspace, o: { signer?: Signer; iss?: string; aud?: string; typ?: string; tokenUse?: string; sid?: string } = {}) {
   const now = Math.floor(Date.now() / 1000);
   const signer = o.signer ?? signers.identity;
   const scope = ws ? { role_id: roles[ws.role], scope_type: ws.type, scope_id: ws.scopeId ?? null } : {};
-  return new SignJWT({ token_use: o.tokenUse ?? 'access', sid: 'sid_admin_test_session', ...scope })
+  return new SignJWT({ token_use: o.tokenUse ?? 'access', sid: o.sid ?? 'sid_admin_test_session', ...scope })
     .setProtectedHeader({ alg: 'RS256', typ: o.typ ?? 'at+jwt', kid: signer.kid })
     .setIssuer(o.iss ?? IDENTITY_ISSUER)
     .setSubject(itsId)
@@ -474,6 +474,156 @@ describe('scope enforcement ("Can create sub-roles?")', () => {
   it('records denied administration attempts with the actor', async () => {
     const rows = (await db.query(`SELECT actor, resource_id FROM authorization_audit_logs WHERE event_type = 'ADMIN_ACCESS_DENIED'`)) as { actor: string; resource_id: string }[];
     expect(rows).toEqual(expect.arrayContaining([{ actor: `user:${DEMO.buAdmin}`, resource_id: 'BUSINESS_UNIT_MGMT_CREATE' }]));
+  });
+});
+
+describe('local session revocation (Identity signs a session out)', () => {
+  const sid = 'sid_revocation_test_session';
+  const revoke = (target: string) => svc('test-federation', 'POST', `/internal/federation/sessions/${target}/revoke`, undefined);
+
+  it('accepts a token while its session is live, and refuses it once Identity revokes the sid', async () => {
+    const token = await userToken(DEMO.core, W.core(), { sid });
+    expect((await call('GET', '/me', token)).status).toBe(200);
+
+    const revoked = await revoke(sid);
+    expect(revoked.status).toBe(200);
+    expect(revoked.body).toMatchObject({ sid, revoked: true, expires_in: expect.any(Number) });
+
+    const after = await call('GET', '/me', token);
+    expect(after.status).toBe(401);
+    expect(after.body.error).toBe('SESSION_REVOKED');
+    // every endpoint kind is covered, including those usable before a workspace is chosen
+    expect((await call('GET', '/me/permissions', token)).status).toBe(401);
+    expect((await call('GET', '/me/assignments', await userToken(DEMO.core, undefined, { sid }))).status).toBe(401);
+    expect((await call('GET', '/roles', token)).status).toBe(401);
+  });
+
+  it('leaves other sessions of the same user working', async () => {
+    const other = await userToken(DEMO.core, W.core(), { sid: 'sid_another_live_session' });
+    expect((await call('GET', '/me', other)).status).toBe(200);
+  });
+
+  it('is only callable with a FEDERATION service token', async () => {
+    expect((await call('POST', `/internal/federation/sessions/${sid}/revoke`, null)).status).toBe(401);
+    expect((await svc('rms-backend', 'POST', `/internal/federation/sessions/${sid}/revoke`, undefined)).body.error).toBe('FORBIDDEN_SCOPE');
+    expect((await as(DEMO.core, W.core(), 'POST', `/internal/federation/sessions/${sid}/revoke`)).body.error).toBe('SERVICE_TOKEN_REQUIRED');
+    const malformed = await revoke('not a sid');
+    expect([malformed.status, malformed.body.error]).toEqual([400, 'INVALID_SID']);
+  });
+});
+
+describe('local sessions recorded for the Control Panel model (miqaat_core.user_sessions)', () => {
+  const S = 'miqaat_core';
+  let tokenSeq = 0;
+  const hash = () => `${(++tokenSeq).toString(16).padStart(2, '0')}`.repeat(32).slice(0, 64);
+  const future = () => new Date(Date.now() + 3600_000).toISOString();
+  const record = (payload: Record<string, unknown>) => svc('test-federation', 'POST', '/internal/federation/sessions', payload);
+  const sessionsFor = (sid: string) =>
+    db.query(`SELECT core_sid, aud, revoked_at, user_id, role_id FROM ${S}.user_sessions WHERE core_sid = $1`, [sid]) as Promise<
+      { core_sid: string; aud: string; revoked_at: Date | null; user_id: string; role_id: string }[]
+    >;
+
+  it('records a signed-in workspace, provisioning the member, tenant and role on first sign-in', async () => {
+    const sid = 'sid_recorded_bu_session';
+    const created = await record({
+      its_id: DEMO.buAdmin, role_id: roles['Business Unit Admin'], scope_type: 'BUSINESS_UNIT', scope_id: bu.RMS,
+      core_sid: sid, aud: 'miqaat-authorization', session_token: hash(), expires_at: future(), ip_address: '203.0.113.7',
+    });
+    expect(created.status).toBe(201);
+    expect(created.body).toMatchObject({ core_sid: sid, session_id: expect.any(String), user_id: expect.any(String), role_id: expect.any(String) });
+
+    const rows = await sessionsFor(sid);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ core_sid: sid, aud: 'miqaat-authorization', revoked_at: null });
+
+    // the member and the workspace's tenant/role now exist in the Control Panel model
+    const member = (await db.query(`SELECT its_id, status, has_been_active FROM ${S}.users WHERE id = $1`, [rows[0].user_id])) as {
+      its_id: string | null; status: string; has_been_active: boolean;
+    }[];
+    expect(member[0]).toMatchObject({ its_id: DEMO.buAdmin, status: 'ACTIVE', has_been_active: true });
+    const role = (await db.query(`SELECT role_level, tenant_id, role_code FROM ${S}.roles WHERE id = $1`, [rows[0].role_id])) as {
+      role_level: string; tenant_id: string | null; role_code: string;
+    }[];
+    expect(role[0]).toMatchObject({ role_level: 'BUSINESS_UNIT_ADMIN', tenant_id: expect.any(String), role_code: 'role-business-unit-admin-rms' });
+    const tenant = (await db.query(`SELECT tenant_type, name FROM ${S}.tenants WHERE id = $1`, [role[0].tenant_id])) as { tenant_type: string; name: string }[];
+    expect(tenant[0]).toEqual({ tenant_type: 'BUSINESS_UNIT', name: 'RMS' });
+  });
+
+  it('reuses the member on a second sign-in and treats a replayed token hash as the same session', async () => {
+    const token = hash();
+    const first = await record({
+      its_id: DEMO.buAdmin, role_id: roles['Business Unit Admin'], scope_type: 'BUSINESS_UNIT', scope_id: bu.RMS,
+      core_sid: 'sid_recorded_twice_a', aud: 'miqaat-authorization', session_token: token, expires_at: future(),
+    });
+    const replay = await record({
+      its_id: DEMO.buAdmin, role_id: roles['Business Unit Admin'], scope_type: 'BUSINESS_UNIT', scope_id: bu.RMS,
+      core_sid: 'sid_recorded_twice_b', aud: 'miqaat-authorization', session_token: token, expires_at: future(),
+    });
+    expect(replay.body.session_id).toBe(first.body.session_id);
+    expect(replay.body.user_id).toBe(first.body.user_id);
+    expect(await sessionsFor('sid_recorded_twice_b')).toHaveLength(0);
+
+    const members = (await db.query(`SELECT count(*) n FROM ${S}.users WHERE its_id = $1`, [DEMO.buAdmin])) as { n: string }[];
+    expect(members[0].n).toBe('1');
+  });
+
+  it('refuses a workspace the user does not hold, an unknown user and an expiry in the past', async () => {
+    const base = { its_id: DEMO.buAdmin, core_sid: 'sid_recorded_rejected', aud: 'miqaat-authorization', expires_at: future() };
+    const notHeld = await record({ ...base, role_id: roles['Business Unit Admin'], scope_type: 'BUSINESS_UNIT', scope_id: bu.VMS, session_token: hash() });
+    expect([notHeld.status, notHeld.body.error]).toEqual([403, 'ASSIGNMENT_NOT_FOUND']);
+
+    const unknown = await record({ ...base, its_id: '99999999', role_id: roles['Business Unit Admin'], scope_type: 'BUSINESS_UNIT', scope_id: bu.RMS, session_token: hash() });
+    expect([unknown.status, unknown.body.error]).toEqual([404, 'USER_NOT_FOUND']);
+
+    const past = await record({
+      ...base, role_id: roles['Business Unit Admin'], scope_type: 'BUSINESS_UNIT', scope_id: bu.RMS,
+      session_token: hash(), expires_at: new Date(Date.now() - 1000).toISOString(),
+    });
+    expect([past.status, past.body.error]).toEqual([400, 'INVALID_SESSION_EXPIRY']);
+    expect(await sessionsFor('sid_recorded_rejected')).toHaveLength(0);
+  });
+
+  it('refuses a JWT as the session token: the local session is keyed by an opaque value only', async () => {
+    const base = {
+      its_id: DEMO.buAdmin, role_id: roles['Business Unit Admin'], scope_type: 'BUSINESS_UNIT', scope_id: bu.RMS,
+      core_sid: 'sid_recorded_jwt_token', aud: 'rms-web-dev', expires_at: future(),
+    };
+    // a compact JWS always carries two dots, which the opaque-token pattern cannot match
+    const jwtShaped = await record({ ...base, session_token: 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIzMTI2Nzg5MCJ9.c2lnbmF0dXJlLXZhbHVlLWhlcmU' });
+    expect(jwtShaped.status).toBe(400);
+
+    expect((await record({ ...base, session_token: 'too-short' })).status).toBe(400);
+    expect(await sessionsFor('sid_recorded_jwt_token')).toHaveLength(0);
+  });
+
+  it('is only callable with a FEDERATION service token', async () => {
+    const payload = {
+      its_id: DEMO.buAdmin, role_id: roles['Business Unit Admin'], scope_type: 'BUSINESS_UNIT', scope_id: bu.RMS,
+      core_sid: 'sid_recorded_forbidden', aud: 'miqaat-authorization', session_token: hash(), expires_at: future(),
+    };
+    expect((await call('POST', '/internal/federation/sessions', null, payload)).status).toBe(401);
+    expect((await svc('rms-backend', 'POST', '/internal/federation/sessions', payload)).body.error).toBe('FORBIDDEN_SCOPE');
+    expect((await as(DEMO.core, W.core(), 'POST', '/internal/federation/sessions', payload)).body.error).toBe('SERVICE_TOKEN_REQUIRED');
+    expect(await sessionsFor('sid_recorded_forbidden')).toHaveLength(0);
+  });
+
+  it('marks every local session of a sid revoked when Identity signs that session out', async () => {
+    const sid = 'sid_recorded_then_revoked';
+    for (const _ of [1, 2]) {
+      await record({
+        its_id: DEMO.buAdmin, role_id: roles['Business Unit Admin'], scope_type: 'BUSINESS_UNIT', scope_id: bu.RMS,
+        core_sid: sid, aud: 'miqaat-authorization', session_token: hash(), expires_at: future(),
+      });
+    }
+    expect((await sessionsFor(sid)).filter((r) => r.revoked_at === null)).toHaveLength(2);
+
+    const revoked = await svc('test-federation', 'POST', `/internal/federation/sessions/${sid}/revoke`, undefined);
+    expect(revoked.body).toMatchObject({ sid, revoked: true, local_sessions_revoked: 2 });
+    expect((await sessionsFor(sid)).filter((r) => r.revoked_at === null)).toHaveLength(0);
+
+    // a sid with nothing recorded still revokes the token, reporting no local sessions
+    const none = await svc('test-federation', 'POST', '/internal/federation/sessions/sid_never_recorded_here/revoke', undefined);
+    expect(none.body).toMatchObject({ revoked: true, local_sessions_revoked: 0 });
   });
 });
 
