@@ -1,0 +1,604 @@
+// core-authorization (miqaat-core-identity-authorization-service) - PostgreSQL
+// Paste into https://dbdiagram.io
+//
+// Introspected from the live database, so this is the real post-migration shape.
+//
+// TWO schemas, and the split matters:
+//   public      - the Authorization service's own RBAC, plus the client / service-principal registry
+//   miqaat_core - the Core Admin Control Panel model, added later in its own schema alongside
+//                 (and independent of) the public tables
+//
+// The browser session endpoints (/v1/authorization/session/*) read miqaat_core, NOT public.
+// Querying the wrong schema is what produces phantom 403 'not onboarded' errors.
+//
+// Both schemas define their OWN users / roles / modules / tenants / role_permissions /
+// user_roles. Same names, different tables, and NO foreign key crosses between them
+// (verified against the live catalog) - so never join across the two.
+// This is also why this service cannot share a database with core-authentication: both would
+// put tables in public, and both use a schema_migrations table.
+//
+// public models RBAC with varchar + CHECK constraints; miqaat_core uses real Postgres ENUM
+// types, declared below.
+
+Enum miqaat_core.auth_header_type {
+  AUTHORIZATION
+  X_API_KEY
+  CUSTOM
+}
+
+Enum miqaat_core.config_duration_unit {
+  MINUTES
+  HOURS
+  DAYS
+  WEEKS
+  MONTHS
+}
+
+Enum miqaat_core.onboarding_stage {
+  WELCOME
+  VERIFY_DETAILS
+  PROVIDE_KEY
+  VERIFY_CONNECTION
+  COMPLETED
+}
+
+Enum miqaat_core.rate_limit_quota_period {
+  PER_DAY
+  PER_MONTH
+}
+
+Enum miqaat_core.role_level {
+  CORE_ADMIN
+  BUSINESS_UNIT_ADMIN
+  UTILITY_ADMIN
+}
+
+Enum miqaat_core.role_status {
+  ACTIVE
+  INACTIVE
+}
+
+Enum miqaat_core.tenant_status {
+  ACTIVE
+  INACTIVE
+}
+
+Enum miqaat_core.tenant_type {
+  BUSINESS_UNIT
+  UTILITY
+}
+
+Enum miqaat_core.user_status {
+  INVITED
+  ACTIVE
+  DISABLED
+}
+
+Table miqaat_core.module_actions {
+  id uuid [pk, default: `gen_random_uuid()`]
+  module_id uuid [not null]
+  action_id uuid [not null]
+  applies_to_core boolean [not null, default: `true`]
+  applies_to_tenant boolean [not null, default: `true`]
+  display_order integer [not null, default: `0`]
+  created_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (module_id, action_id) [unique, name: 'uq_module_actions_module_action']
+  }
+}
+
+Table miqaat_core.modules {
+  id uuid [pk, default: `gen_random_uuid()`]
+  code varchar(20) [not null, unique]
+  name varchar(255) [not null]
+  applies_to_core boolean [not null, default: `false`]
+  applies_to_tenant boolean [not null, default: `false`]
+  display_order integer [not null, default: `0`]
+  created_at timestamptz [not null, default: `now()`]
+}
+
+Table miqaat_core.permission_actions {
+  id uuid [pk, default: `gen_random_uuid()`]
+  code varchar(20) [not null, unique]
+  name varchar(100) [not null]
+  display_order integer [not null, default: `0`]
+  created_at timestamptz [not null, default: `now()`]
+}
+
+Table miqaat_core.platform_settings {
+  id integer [pk, default: `1`]
+  event_bus_name varchar(255) [not null]
+  event_bus_arn text [not null]
+  timezone varchar(64) [not null, default: 'UTC']
+  max_admins_per_tenant integer [not null, default: `1`]
+  audit_log_archival_duration_value integer [not null, default: `90`]
+  audit_log_archival_duration_unit miqaat_core.config_duration_unit [not null, default: `'DAYS'::miqaat_core.config_duration_unit`]
+  monitoring_log_archival_duration_value integer [not null, default: `60`]
+  monitoring_log_archival_duration_unit miqaat_core.config_duration_unit [not null, default: `'DAYS'::miqaat_core.config_duration_unit`]
+  contract_deprecation_duration_value integer [not null, default: `30`]
+  contract_deprecation_duration_unit miqaat_core.config_duration_unit [not null, default: `'DAYS'::miqaat_core.config_duration_unit`]
+  its_sync_frequency_value integer [not null, default: `6`]
+  its_sync_frequency_unit miqaat_core.config_duration_unit [not null, default: `'HOURS'::miqaat_core.config_duration_unit`]
+  core_rate_limit_per_second integer [not null]
+  core_rate_limit_burst integer [not null]
+  core_quota_enabled boolean [not null, default: `false`]
+  core_quota_requests integer
+  core_quota_period miqaat_core.rate_limit_quota_period
+  circuit_breaker_probe_interval_value integer [not null, default: `1`]
+  circuit_breaker_probe_interval_unit miqaat_core.config_duration_unit [not null, default: `'MINUTES'::miqaat_core.config_duration_unit`]
+  circuit_breaker_open_cooldown_value integer [not null, default: `2`]
+  circuit_breaker_open_cooldown_unit miqaat_core.config_duration_unit [not null, default: `'MINUTES'::miqaat_core.config_duration_unit`]
+  circuit_breaker_failure_rate_threshold_pct integer [not null, default: `50`]
+  circuit_breaker_min_sample_size integer [not null, default: `10`]
+  circuit_breaker_consecutive_failure_threshold integer [not null, default: `3`]
+  default_sla_timeout_seconds integer [not null]
+  max_sla_timeout_seconds integer [not null]
+  updated_at timestamptz [not null, default: `now()`]
+}
+
+Table miqaat_core.role_permissions {
+  id uuid [pk, default: `gen_random_uuid()`]
+  role_id uuid [not null]
+  module_action_id uuid [not null]
+  created_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (role_id, module_action_id) [unique, name: 'uq_role_permissions_role_module_action']
+  }
+}
+
+Table miqaat_core.roles {
+  id uuid [pk, default: `gen_random_uuid()`]
+  role_level miqaat_core.role_level [not null]
+  tenant_id uuid
+  role_code varchar(50) [not null, unique]
+  name varchar(255) [not null]
+  description text
+  status miqaat_core.role_status [not null, default: `'ACTIVE'::miqaat_core.role_status`]
+  is_full_access boolean [not null, default: `false`]
+  created_by_core_admin boolean [not null]
+  created_by uuid
+  updated_by uuid
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    role_level [name: 'ix_roles_created_by_core_admin (partial)']
+    (role_level, tenant_id) [name: 'ix_roles_level_tenant']
+    tenant_id [name: 'ix_roles_tenant_id']
+    role_level [unique, name: 'uq_roles_one_core_full_access (partial)']
+    tenant_id [unique, name: 'uq_roles_one_full_access_per_tenant (partial)']
+  }
+}
+
+Table miqaat_core.tenant_core_credentials {
+  id uuid [pk, default: `gen_random_uuid()`]
+  tenant_id uuid [not null, unique]
+  core_access_token text [not null]
+  aws_api_key_id varchar(64)
+  security_access_key text [not null]
+  security_secret_key text [not null]
+  standard_queue_arn text [not null]
+  fifo_queue_arn text [not null]
+  relay_hmac_secret text [not null]
+  created_at timestamptz [not null, default: `now()`]
+}
+
+Table miqaat_core.tenant_domain_credentials {
+  id uuid [pk, default: `gen_random_uuid()`]
+  tenant_domain_id uuid [not null, unique]
+  access_token_value text [not null]
+  health_check_path varchar(500)
+  use_token_for_health_check boolean [not null, default: `false`]
+  last_verified_at timestamptz
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+}
+
+Table miqaat_core.tenant_domains {
+  id uuid [pk, default: `gen_random_uuid()`]
+  tenant_id uuid [not null]
+  url varchar(500) [not null]
+  is_default boolean [not null, default: `false`]
+  auth_header_type miqaat_core.auth_header_type [not null, default: `'AUTHORIZATION'::miqaat_core.auth_header_type`]
+  custom_header_name varchar(255)
+  label varchar(255)
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    tenant_id [name: 'ix_tenant_domains_tenant_id']
+    tenant_id [unique, name: 'uq_tenant_domains_one_default (partial)']
+  }
+}
+
+Table miqaat_core.tenant_rate_limits {
+  id uuid [pk, default: `gen_random_uuid()`]
+  tenant_id uuid [not null, unique]
+  rate_limit_per_second integer [not null]
+  burst_limit integer [not null]
+  quota_enabled boolean [not null, default: `false`]
+  quota_requests integer
+  quota_period miqaat_core.rate_limit_quota_period
+  max_sla_timeout_seconds integer
+  aws_usage_plan_id varchar(64)
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+}
+
+Table miqaat_core.tenants {
+  id uuid [pk, default: `gen_random_uuid()`]
+  tenant_type miqaat_core.tenant_type [not null]
+  name varchar(255) [not null]
+  description text
+  status miqaat_core.tenant_status [not null, default: `'ACTIVE'::miqaat_core.tenant_status`]
+  onboarding_stage miqaat_core.onboarding_stage [not null, default: `'WELCOME'::miqaat_core.onboarding_stage`]
+  created_by uuid
+  updated_by uuid
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (tenant_type, lower(TRIM(BOTH FROM name) [unique, name: 'uq_tenants_type_name_ci']
+  }
+}
+
+Table miqaat_core.user_roles {
+  id uuid [pk, default: `gen_random_uuid()`]
+  user_id uuid [not null]
+  role_id uuid [not null]
+  tenant_id uuid
+  role_level miqaat_core.role_level [not null]
+  assigned_by uuid
+  assigned_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    user_id [unique, name: 'uq_user_roles_one_core_admin_role (partial)']
+    (user_id, tenant_id) [unique, name: 'uq_user_roles_one_role_per_tenant (partial)']
+    (user_id, role_id) [unique, name: 'uq_user_roles_user_role']
+  }
+}
+
+Table miqaat_core.user_sessions {
+  id uuid [pk, default: `gen_random_uuid()`]
+  user_id uuid [not null]
+  role_id uuid [not null]
+  core_sid text
+  aud varchar(255)
+  session_token text [not null, unique]
+  ip_address inet
+  user_agent text
+  created_at timestamptz [not null, default: `now()`]
+  expires_at timestamptz [not null]
+  revoked_at timestamptz
+
+  indexes {
+    core_sid [name: 'ix_user_sessions_core_sid']
+    session_token [name: 'ix_user_sessions_session_token']
+    user_id [name: 'ix_user_sessions_user_id']
+  }
+}
+
+Table miqaat_core.users {
+  id uuid [pk, default: `gen_random_uuid()`]
+  its_id varchar(8) [not null, unique]
+  name varchar(255) [not null]
+  email varchar(255) [not null, unique]
+  mobile_number varchar(30)
+  status miqaat_core.user_status [not null, default: `'INVITED'::miqaat_core.user_status`]
+  has_been_active boolean [not null, default: `false`]
+  last_login_at timestamptz
+  created_by uuid
+  updated_by uuid
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+}
+
+Table public.applications {
+  application_id uuid [pk, default: `gen_random_uuid()`]
+  tenant_id uuid [not null]
+  bu_id uuid
+  utility_id uuid
+  code varchar(64) [not null, unique]
+  name varchar(200) [not null]
+  description text
+  status varchar(16) [not null, default: 'active', note: 'active | inactive']
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+}
+
+Table public.authorization_audit_logs {
+  id bigserial [pk]
+  event_type varchar(64) [not null]
+  actor varchar(128)
+  its_id varchar(64)
+  client_id varchar(64)
+  resource_type varchar(64)
+  resource_id varchar(256)
+  decision varchar(16)
+  reason varchar(64)
+  correlation_id varchar(128)
+  metadata jsonb
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (client_id, created_at) [name: 'idx_authz_audit_client']
+    (event_type, created_at) [name: 'idx_authz_audit_event']
+    (its_id, created_at) [name: 'idx_authz_audit_its']
+  }
+}
+
+Table public.business_units {
+  bu_id uuid [pk, default: `gen_random_uuid()`]
+  tenant_id uuid [not null]
+  name varchar(200) [not null]
+  status varchar(16) [not null, default: 'active', note: 'active | inactive']
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (tenant_id, name) [unique, name: 'business_units_tenant_id_name_key']
+  }
+}
+
+Table public.client_origins {
+  id uuid [pk, default: `gen_random_uuid()`]
+  client_ref uuid [not null]
+  origin varchar(512) [not null]
+  purpose varchar(16) [not null, default: 'EMBED']
+  created_by varchar(128)
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (client_ref, origin, purpose) [unique, name: 'client_origins_client_ref_origin_purpose_key']
+  }
+}
+
+Table public.client_redirect_uris {
+  id uuid [pk, default: `gen_random_uuid()`]
+  client_ref uuid [not null]
+  uri varchar(2048) [not null]
+  uri_type varchar(32) [not null, note: 'CALLBACK | BACK_CHANNEL_LOGOUT | POST_LOGOUT_REDIRECT']
+  is_primary boolean [not null, default: `false`]
+  created_by varchar(128)
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (client_ref, uri, uri_type) [unique, name: 'client_redirect_uris_client_ref_uri_uri_type_key']
+    client_ref [unique, name: 'uq_client_single_backchannel (partial)']
+  }
+}
+
+Table public.client_status_history {
+  id bigserial [pk]
+  client_ref uuid [not null]
+  from_status varchar(24)
+  to_status varchar(24) [not null]
+  reason text
+  changed_by varchar(128)
+  changed_at timestamptz [not null, default: `now()`]
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+}
+
+Table public.clients {
+  id uuid [pk, default: `gen_random_uuid()`]
+  client_id varchar(64) [not null, unique]
+  application_id uuid [not null]
+  environment_id uuid [not null]
+  name varchar(200) [not null]
+  client_type varchar(16) [not null, note: 'WEB | SPA | MOBILE | SERVICE']
+  authentication_mode varchar(24) [not null, note: 'EMBEDDED | REDIRECT | EMBEDDED_OR_REDIRECT']
+  status varchar(24) [not null, default: 'PENDING', note: 'PENDING | SECURITY_REVIEW | ACTIVE | SUSPENDED | RETIRED']
+  initiate_login_uri varchar(2048)
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (application_id, environment_id) [name: 'idx_clients_application_env']
+  }
+}
+
+Table public.environments {
+  id uuid [pk, default: `gen_random_uuid()`]
+  code varchar(16) [not null, unique]
+  name varchar(100) [not null]
+  is_production boolean [not null, default: `false`]
+  sort_order integer [not null, default: `0`]
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+}
+
+Table public.modules {
+  module_id uuid [pk, default: `gen_random_uuid()`]
+  module_code varchar(64) [not null, unique]
+  module_name varchar(200) [not null]
+  is_default boolean [not null, default: `false`]
+  application_id uuid
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+}
+
+Table public.permissions {
+  permission_id uuid [pk, default: `gen_random_uuid()`]
+  module_id uuid [not null]
+  action varchar(16) [not null, note: 'view | create | edit | delete | approve | export']
+  permission_code varchar(128) [not null, unique]
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (module_id, action) [unique, name: 'permissions_module_id_action_key']
+  }
+}
+
+Table public.role_permissions {
+  role_id uuid [not null]
+  permission_id uuid [not null]
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (role_id, permission_id) [unique, name: 'PRIMARY KEY']
+  }
+}
+
+Table public.roles {
+  role_id uuid [pk, default: `gen_random_uuid()`]
+  tenant_id uuid [not null]
+  role_name varchar(200) [not null]
+  scope_level varchar(16) [not null, note: 'CORE | BUSINESS_UNIT | UTILITY']
+  is_system_role boolean [not null, default: `false`]
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (tenant_id, role_name) [unique, name: 'roles_tenant_id_role_name_key']
+  }
+}
+
+Table public.service_principals {
+  id uuid [pk, default: `gen_random_uuid()`]
+  principal_id varchar(64) [not null, unique]
+  name varchar(200) [not null]
+  jwks_uri varchar(2048) [not null]
+  scopes _text [not null]
+  allowed_client_ids _text
+  status varchar(16) [not null, default: 'ACTIVE', note: 'ACTIVE | REVOKED']
+  last_used_at timestamptz
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+  revoked_at timestamptz
+}
+
+Table public.tenants {
+  tenant_id uuid [pk, default: `gen_random_uuid()`]
+  name varchar(200) [not null, unique]
+  status varchar(16) [not null, default: 'active', note: 'active | inactive']
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+}
+
+Table public.user_roles {
+  its_id varchar(64) [not null]
+  role_id uuid [not null]
+  scope_type varchar(16) [not null, note: 'CORE | BUSINESS_UNIT | UTILITY']
+  scope_id uuid
+  assigned_at timestamptz [not null, default: `now()`]
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (scope_type, scope_id) [name: 'idx_user_roles_scope']
+    (its_id, role_id, COALESCE(scope_id, '00000000-0000-0000-0000-000000000000'::uuid) [unique, name: 'uq_user_roles']
+  }
+}
+
+Table public.users {
+  its_id varchar(64) [pk]
+  tenant_id uuid [not null]
+  name varchar(256) [not null]
+  email varchar(256)
+  status varchar(16) [not null, default: 'active', note: 'active | inactive | suspended']
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    tenant_id [name: 'idx_users_tenant']
+  }
+}
+
+Table public.utilities {
+  utility_id uuid [pk, default: `gen_random_uuid()`]
+  bu_id uuid [not null]
+  name varchar(200) [not null]
+  status varchar(16) [not null, default: 'active', note: 'active | inactive']
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (bu_id, name) [unique, name: 'utilities_bu_id_name_key']
+  }
+}
+
+TableGroup "public" {
+  public.applications
+  public.authorization_audit_logs
+  public.business_units
+  public.client_origins
+  public.client_redirect_uris
+  public.client_status_history
+  public.clients
+  public.environments
+  public.modules
+  public.permissions
+  public.role_permissions
+  public.roles
+  public.service_principals
+  public.tenants
+  public.user_roles
+  public.users
+  public.utilities
+}
+
+TableGroup "miqaat_core" {
+  miqaat_core.module_actions
+  miqaat_core.modules
+  miqaat_core.permission_actions
+  miqaat_core.platform_settings
+  miqaat_core.role_permissions
+  miqaat_core.roles
+  miqaat_core.tenant_core_credentials
+  miqaat_core.tenant_domain_credentials
+  miqaat_core.tenant_domains
+  miqaat_core.tenant_rate_limits
+  miqaat_core.tenants
+  miqaat_core.user_roles
+  miqaat_core.user_sessions
+  miqaat_core.users
+}
+
+// ---- foreign keys
+Ref permissions_module_id_fkey: public.permissions.module_id > public.modules.module_id [delete: cascade]
+Ref business_units_tenant_id_fkey: public.business_units.tenant_id > public.tenants.tenant_id [delete: cascade]
+Ref utilities_bu_id_fkey: public.utilities.bu_id > public.business_units.bu_id [delete: cascade]
+Ref users_tenant_id_fkey: public.users.tenant_id > public.tenants.tenant_id [delete: cascade]
+Ref applications_tenant_id_fkey: public.applications.tenant_id > public.tenants.tenant_id [delete: cascade]
+Ref applications_bu_id_fkey: public.applications.bu_id > public.business_units.bu_id [delete: cascade]
+Ref applications_utility_id_fkey: public.applications.utility_id > public.utilities.utility_id [delete: cascade]
+Ref modules_application_id_fkey: public.modules.application_id > public.applications.application_id [delete: cascade]
+Ref roles_tenant_id_fkey: public.roles.tenant_id > public.tenants.tenant_id [delete: cascade]
+Ref role_permissions_role_id_fkey: public.role_permissions.role_id > public.roles.role_id [delete: cascade]
+Ref role_permissions_permission_id_fkey: public.role_permissions.permission_id > public.permissions.permission_id [delete: cascade]
+Ref user_roles_its_id_fkey: public.user_roles.its_id > public.users.its_id [delete: cascade]
+Ref user_roles_role_id_fkey: public.user_roles.role_id > public.roles.role_id [delete: cascade]
+Ref clients_application_id_fkey: public.clients.application_id > public.applications.application_id [delete: cascade]
+Ref clients_environment_id_fkey: public.clients.environment_id > public.environments.id [delete: cascade]
+Ref client_origins_client_ref_fkey: public.client_origins.client_ref > public.clients.id [delete: cascade]
+Ref client_redirect_uris_client_ref_fkey: public.client_redirect_uris.client_ref > public.clients.id [delete: cascade]
+Ref client_status_history_client_ref_fkey: public.client_status_history.client_ref > public.clients.id [delete: cascade]
+Ref users_created_by_fkey: miqaat_core.users.created_by > miqaat_core.users.id [delete: set null]
+Ref users_updated_by_fkey: miqaat_core.users.updated_by > miqaat_core.users.id [delete: set null]
+Ref tenants_created_by_fkey: miqaat_core.tenants.created_by > miqaat_core.users.id [delete: set null]
+Ref tenants_updated_by_fkey: miqaat_core.tenants.updated_by > miqaat_core.users.id [delete: set null]
+Ref tenant_domains_tenant_id_fkey: miqaat_core.tenant_domains.tenant_id > miqaat_core.tenants.id [delete: cascade]
+Ref tenant_domain_credentials_tenant_domain_id_fkey: miqaat_core.tenant_domain_credentials.tenant_domain_id > miqaat_core.tenant_domains.id [delete: cascade]
+Ref tenant_core_credentials_tenant_id_fkey: miqaat_core.tenant_core_credentials.tenant_id > miqaat_core.tenants.id [delete: cascade]
+Ref tenant_rate_limits_tenant_id_fkey: miqaat_core.tenant_rate_limits.tenant_id > miqaat_core.tenants.id [delete: cascade]
+Ref module_actions_module_id_fkey: miqaat_core.module_actions.module_id > miqaat_core.modules.id [delete: cascade]
+Ref module_actions_action_id_fkey: miqaat_core.module_actions.action_id > miqaat_core.permission_actions.id [delete: restrict]
+Ref roles_tenant_id_fkey: miqaat_core.roles.tenant_id > miqaat_core.tenants.id [delete: cascade]
+Ref roles_created_by_fkey: miqaat_core.roles.created_by > miqaat_core.users.id [delete: set null]
+Ref roles_updated_by_fkey: miqaat_core.roles.updated_by > miqaat_core.users.id [delete: set null]
+Ref role_permissions_role_id_fkey: miqaat_core.role_permissions.role_id > miqaat_core.roles.id [delete: cascade]
+Ref role_permissions_module_action_id_fkey: miqaat_core.role_permissions.module_action_id > miqaat_core.module_actions.id [delete: restrict]
+Ref user_roles_user_id_fkey: miqaat_core.user_roles.user_id > miqaat_core.users.id [delete: cascade]
+Ref user_roles_role_id_fkey: miqaat_core.user_roles.role_id > miqaat_core.roles.id [delete: cascade]
+Ref user_roles_tenant_id_fkey: miqaat_core.user_roles.tenant_id > miqaat_core.tenants.id [delete: cascade]
+Ref user_roles_assigned_by_fkey: miqaat_core.user_roles.assigned_by > miqaat_core.users.id [delete: set null]
+Ref user_sessions_user_id_fkey: miqaat_core.user_sessions.user_id > miqaat_core.users.id [delete: cascade]
+Ref user_sessions_role_id_fkey: miqaat_core.user_sessions.role_id > miqaat_core.roles.id [delete: cascade]
