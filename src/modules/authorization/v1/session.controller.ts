@@ -6,11 +6,22 @@ import { Public } from '@common/decorators/public.decorator';
 import { DomainError } from '@common/errors/domain-error';
 import { AuditService } from '@core/audit/audit.service';
 import { AssertionVerificationError, AssertionVerifierService } from '../services/assertion-verifier.service';
-import { LocalSessionService, MiqaatCoreRole } from '../services/local-session.service';
+import { LocalSessionService, MiqaatCoreRole, type SessionFailureReason } from '../services/local-session.service';
+import { bindingContextOf } from '@common/security/session-binding';
 import { SelectRoleDto } from './dto/select-role.dto';
 import { VerifyAssertionDto } from './dto/verify-assertion.dto';
 
 const COOKIE_NAME = 'miqaat_session';
+
+/**
+ * Every session-based refusal in this controller goes through here, so `miqaat_session` and the
+ * pending-selection token cannot end up with different status codes, messages or log shapes.
+ * The response deliberately states only that re-authentication is needed: telling a caller whether a
+ * token was expired, revoked or simply bound to another IP would confirm the token exists.
+ */
+function sessionRefused(_reason: SessionFailureReason): DomainError {
+  return new DomainError('SESSION_REQUIRED', 'Your session is no longer valid. Please sign in again.', 401);
+}
 const SESSION_TTL_SECONDS = 8 * 3600;
 
 function readCookie(req: FastifyRequest, name: string): string | undefined {
@@ -145,8 +156,13 @@ export class SessionController {
   @Public()
   @ApiOperation({ summary: 'Finalize a multi-role login: pick which role/tenant to establish the local session as' })
   async select(@Body() dto: SelectRoleDto, @Req() req: FastifyRequest, @Res({ passthrough: true }) reply: FastifyReply) {
-    const pending = await this.sessions.consumePendingSelection(dto.pending_token);
-    if (!pending) throw new DomainError('SELECTION_EXPIRED', 'This role selection has expired; sign in again', 401);
+    const selection = await this.sessions.consumePendingSelection(dto.pending_token, bindingContextOf(req));
+    if (!selection.ok) {
+      this.logger.warn({ msg: 'role selection rejected', reason: selection.reason, ...(selection.audit ?? {}) });
+      await this.audit.record({ eventType: 'LOCAL_SESSION_SELECTION_REJECTED', decision: 'DENY', reason: selection.reason, metadata: selection.audit });
+      throw sessionRefused(selection.reason);
+    }
+    const pending = selection.pending;
 
     const role = await this.sessions.findRoleForUser(pending.userId, dto.role_id);
     if (!role) throw new DomainError('ROLE_NOT_ASSIGNED', 'That role is no longer assigned to you', 403);
@@ -171,12 +187,31 @@ export class SessionController {
 
   @Get('me')
   @Public()
-  @ApiOperation({ summary: 'Resolve the current local session from its cookie' })
+  @ApiOperation({ summary: 'Resolve the current local session from its cookie (same IP + User-Agent as at login)' })
   async me(@Req() req: FastifyRequest) {
+    const resolved = await this.resolveFromCookie(req, 'SESSION_ME');
+    return { verified: true, ...(await presentSession(this.sessions, resolved)) };
+  }
+
+  /**
+   * Read cookie -> resolve with the current request's IP + User-Agent -> allow only on a full match.
+   * The one place this controller turns a cookie into a session; `/me` and `/logout` both use it so
+   * neither can accidentally skip a step.
+   */
+  private async resolveFromCookie(req: FastifyRequest, eventType: string) {
     const token = readCookie(req, COOKIE_NAME);
-    const session = token ? await this.sessions.resolveSession(token) : null;
-    if (!session) throw new DomainError('SESSION_REQUIRED', 'No active session', 401);
-    return { verified: true, ...(await presentSession(this.sessions, session)) };
+    if (!token) {
+      await this.audit.record({ eventType, decision: 'DENY', reason: 'NO_COOKIE' });
+      throw sessionRefused('NOT_FOUND');
+    }
+    const ctx = bindingContextOf(req);
+    const result = await this.sessions.resolveSession(token, ctx);
+    if (!result.ok) {
+      this.logger.warn({ msg: 'session rejected', event: eventType, reason: result.reason, ...(result.audit ?? {}) });
+      await this.audit.record({ eventType, decision: 'DENY', reason: result.reason, metadata: result.audit });
+      throw sessionRefused(result.reason);
+    }
+    return result.session;
   }
 
   @Post('logout')
@@ -184,9 +219,12 @@ export class SessionController {
   @Public()
   @ApiOperation({ summary: 'Revoke the current local session' })
   async logout(@Req() req: FastifyRequest, @Res({ passthrough: true }) reply: FastifyReply) {
-    const token = readCookie(req, COOKIE_NAME);
-    if (token) await this.sessions.revokeSession(token);
+    // Bound like every other session endpoint: a caller that cannot prove the session is theirs may not
+    // revoke it, so a leaked cookie cannot be used to force someone else's session closed.
+    const session = await this.resolveFromCookie(req, 'SESSION_LOGOUT');
+    await this.sessions.revokeSession(session.sessionToken);
     clearSessionCookie(reply);
+    await this.audit.record({ eventType: 'LOCAL_SESSION_REVOKED', itsId: session.user.itsId, decision: 'ALLOW', reason: 'USER_LOGOUT' });
     return { logged_out: true };
   }
 }

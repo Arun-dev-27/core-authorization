@@ -4,6 +4,12 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import type Redis from 'ioredis';
 import { DataSource } from 'typeorm';
 import { REDIS } from '@core/cache/redis.module';
+import {
+  bindingAuditMetadata,
+  checkSessionBinding,
+  type SessionBindingContext,
+  type SessionBindingFailure,
+} from '@common/security/session-binding';
 
 export interface MiqaatCoreUser {
   id: string;
@@ -28,6 +34,17 @@ export interface LocalSession {
   user: MiqaatCoreUser;
   role: MiqaatCoreRole;
 }
+
+/** Why a cookie did not yield a session. Used verbatim as the failure reason in the masked audit log. */
+export type SessionFailureReason = 'INVALID_TOKEN' | 'NOT_FOUND' | 'REVOKED' | 'EXPIRED' | SessionBindingFailure;
+
+export type SessionResolution =
+  | { ok: true; session: LocalSession }
+  | { ok: false; reason: SessionFailureReason; audit?: Record<string, unknown> };
+
+export type PendingSelectionResolution =
+  | { ok: true; pending: PendingSelection }
+  | { ok: false; reason: SessionFailureReason; audit?: Record<string, unknown> };
 
 export interface PendingSelection {
   userId: string;
@@ -103,13 +120,24 @@ export class LocalSessionService {
     return { pendingToken, roles };
   }
 
-  async consumePendingSelection(pendingToken: string): Promise<PendingSelection | null> {
-    if (typeof pendingToken !== 'string' || pendingToken.length < 16 || pendingToken.length > 128) return null;
+  /** Step two of a multi-role login carries a session, so it is bound exactly like a cookie is. */
+  async consumePendingSelection(pendingToken: string, ctx: SessionBindingContext): Promise<PendingSelectionResolution> {
+    if (typeof pendingToken !== 'string' || pendingToken.length < 16 || pendingToken.length > 128) {
+      return { ok: false, reason: 'INVALID_TOKEN' };
+    }
     const key = `${PENDING_SELECTION_KEY_PREFIX}${pendingToken}`;
     const raw = await this.redis.get(key);
-    if (!raw) return null;
+    if (!raw) return { ok: false, reason: 'NOT_FOUND' };
+    const pending = JSON.parse(raw) as PendingSelection;
+
+    const stored = { ipAddress: pending.ipAddress, userAgent: pending.userAgent };
+    const binding = checkSessionBinding(stored, ctx);
+    if (!binding.ok) {
+      // Deliberately not consumed: a mismatched caller must not be able to burn someone else's selection.
+      return { ok: false, reason: binding.reason, audit: bindingAuditMetadata(binding.reason, stored, ctx) };
+    }
     await this.redis.del(key);
-    return JSON.parse(raw) as PendingSelection;
+    return { ok: true, pending };
   }
 
   /** First successful login flips INVITED -> ACTIVE and stamps has_been_active/last_login_at (mirrors the schema's own note). */
@@ -133,26 +161,44 @@ export class LocalSessionService {
     return { sessionToken, expiresAt };
   }
 
-  async resolveSession(sessionToken: string): Promise<LocalSession | null> {
-    if (typeof sessionToken !== 'string' || sessionToken.length < 16 || sessionToken.length > 512) return null;
+  /**
+   * The single path from a `miqaat_session` cookie to a session. Token shape, revocation, expiry and
+   * binding (same IP + User-Agent as at login) are all decided here, so no caller can reach a session
+   * with any one of them unchecked. Revocation and expiry are evaluated in code rather than filtered
+   * out in SQL, so the audit log can name which one failed instead of a blanket "not found".
+   */
+  async resolveSession(sessionToken: string, ctx: SessionBindingContext): Promise<SessionResolution> {
+    if (typeof sessionToken !== 'string' || sessionToken.length < 16 || sessionToken.length > 512) {
+      return { ok: false, reason: 'INVALID_TOKEN' };
+    }
     const rows = await this.db.query(
-      `SELECT s.session_token, s.expires_at,
+      `SELECT s.session_token, s.expires_at, s.revoked_at, s.ip_address, s.user_agent,
               u.id AS user_id, u.its_id, u.name AS user_name, u.email, u.status AS user_status,
               r.id AS role_id, r.role_code, r.name AS role_name, r.role_level, r.tenant_id, t.name AS tenant_name
          FROM miqaat_core.user_sessions s
          JOIN miqaat_core.users u ON u.id = s.user_id
          JOIN miqaat_core.roles r ON r.id = s.role_id
          LEFT JOIN miqaat_core.tenants t ON t.id = r.tenant_id
-        WHERE s.session_token = $1 AND s.revoked_at IS NULL AND s.expires_at > now()`,
+        WHERE s.session_token = $1`,
       [sessionToken],
     );
-    if (!rows.length) return null;
+    if (!rows.length) return { ok: false, reason: 'NOT_FOUND' };
     const r = rows[0];
+    if (r.revoked_at) return { ok: false, reason: 'REVOKED' };
+    if (new Date(r.expires_at).getTime() <= Date.now()) return { ok: false, reason: 'EXPIRED' };
+
+    const stored = { ipAddress: r.ip_address as string | null, userAgent: r.user_agent as string | null };
+    const binding = checkSessionBinding(stored, ctx);
+    if (!binding.ok) return { ok: false, reason: binding.reason, audit: bindingAuditMetadata(binding.reason, stored, ctx) };
+
     return {
-      sessionToken: r.session_token,
-      expiresAt: r.expires_at,
-      user: { id: r.user_id, itsId: r.its_id, name: r.user_name, email: r.email, status: r.user_status },
-      role: { roleId: r.role_id, roleCode: r.role_code, roleName: r.role_name, roleLevel: r.role_level, tenantId: r.tenant_id, tenantName: r.tenant_name },
+      ok: true,
+      session: {
+        sessionToken: r.session_token,
+        expiresAt: r.expires_at,
+        user: { id: r.user_id, itsId: r.its_id, name: r.user_name, email: r.email, status: r.user_status },
+        role: { roleId: r.role_id, roleCode: r.role_code, roleName: r.role_name, roleLevel: r.role_level, tenantId: r.tenant_id, tenantName: r.tenant_name },
+      },
     };
   }
 
