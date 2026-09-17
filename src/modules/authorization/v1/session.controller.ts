@@ -8,6 +8,8 @@ import { AuditService } from '@core/audit/audit.service';
 import { AssertionVerificationError, AssertionVerifierService } from '../services/assertion-verifier.service';
 import { LocalSessionService, MiqaatCoreRole, type SessionFailureReason } from '../services/local-session.service';
 import { bindingContextOf } from '@common/security/session-binding';
+import { decideSessionPermission } from '../services/session-permission';
+import { CheckSessionPermissionDto } from './dto/check-session-permission.dto';
 import { SelectRoleDto } from './dto/select-role.dto';
 import { VerifyAssertionDto } from './dto/verify-assertion.dto';
 
@@ -212,6 +214,45 @@ export class SessionController {
       throw sessionRefused(result.reason);
     }
     return result.session;
+  }
+
+  /**
+   * Server-side enforcement for a Business Unit / Admin Panel backend: may the user behind this session
+   * perform `action` on `module` (optionally inside `tenant_id`)? Decided on the live RBAC rows, so changes
+   * made after sign-in apply immediately. 200 when allowed, 403 PERMISSION_DENIED otherwise.
+   */
+  @Post('check')
+  @HttpCode(200)
+  @Public()
+  @ApiOperation({ summary: 'Enforce a module action (and tenant) for the current local session: 200 allowed, 403 denied' })
+  async check(@Body() dto: CheckSessionPermissionDto, @Req() req: FastifyRequest) {
+    const session = await this.resolveFromCookie(req, 'SESSION_PERMISSION_CHECK');
+    const { permissions } = await this.sessions.getModulePermissions(session.role.roleId, session.role.roleLevel);
+    const decision = decideSessionPermission(
+      {
+        userStatus: session.user.status,
+        roleStatus: session.roleStatus,
+        roleLevel: session.role.roleLevel,
+        roleTenantId: session.role.tenantId,
+        tenantStatus: session.tenantStatus,
+        permissions,
+      },
+      { module: dto.module, action: dto.action, tenantId: dto.tenant_id ?? null },
+    );
+    const resource = { module: dto.module.toUpperCase(), action: dto.action.toUpperCase(), tenant_id: dto.tenant_id ?? session.role.tenantId };
+    if (!decision.allowed) {
+      await this.audit.record({
+        eventType: 'SESSION_PERMISSION_CHECK',
+        itsId: session.user.itsId,
+        resourceType: 'module_action',
+        resourceId: `${resource.module}:${resource.action}`,
+        decision: 'DENY',
+        reason: decision.reason,
+        metadata: { role_code: session.role.roleCode, tenant_id: resource.tenant_id },
+      });
+      throw new DomainError('PERMISSION_DENIED', 'You do not have permission to perform this action', 403, { reason: decision.reason });
+    }
+    return { allowed: true, its_id: session.user.itsId, role: session.role.roleCode, ...resource };
   }
 
   @Post('logout')

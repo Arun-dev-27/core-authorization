@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
+import { AppConfig } from '@config/config.module';
 import { requestContext } from '@common/logging/request-context';
 
 export interface AuthorizationAuditEvent {
@@ -18,11 +19,30 @@ export interface AuthorizationAuditEvent {
 export class AuditService {
   private readonly logger = new Logger(AuditService.name);
 
-  constructor(@InjectDataSource() private readonly db: DataSource) {}
+  constructor(
+    @InjectDataSource() private readonly db: DataSource,
+    private readonly config: AppConfig,
+  ) {}
 
   /** Best-effort: audit failures are logged but never break the business operation. */
   async record(event: AuthorizationAuditEvent): Promise<void> {
     const ctx = requestContext.getStore();
+    if (!this.config.env.AUDIT_DB_ENABLED) {
+      // No audit table in this database (admin_db): keep the trail in the structured log instead.
+      this.logger.log({
+        msg: 'audit',
+        event_type: event.eventType,
+        its_id: event.itsId ?? null,
+        client_id: event.clientId ?? null,
+        resource_type: event.resourceType ?? null,
+        resource_id: event.resourceId ?? null,
+        decision: event.decision ?? null,
+        reason: event.reason ?? null,
+        correlation_id: ctx?.correlationId ?? null,
+        metadata: event.metadata ?? null,
+      });
+      return;
+    }
     try {
       await this.db.query(
         `INSERT INTO authorization_audit_logs

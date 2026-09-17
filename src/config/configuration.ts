@@ -90,18 +90,35 @@ export const envSchema = z
       .transform((v) => (v ? v.toLowerCase() : undefined)),
     SWAGGER_ENABLED: bool.default('true'),
 
+    // The EXISTING authorization database. Every value is required and used exactly as given - no defaults.
     AUTHZ_DB_HOST: z.string().min(1),
-    AUTHZ_DB_PORT: z.coerce.number().int().positive().default(5432),
+    AUTHZ_DB_PORT: z.coerce.number().int().positive(),
     AUTHZ_DB_USER: z.string().min(1),
     AUTHZ_DB_PASSWORD: z.string().min(1),
     AUTHZ_DB_NAME: z.string().min(1),
     AUTHZ_DB_SSL: bool.default('false'),
+    /**
+     * Schema holding the Core RBAC tables the browser session reads (users, tenants, roles, user_roles,
+     * role_permissions, modules, permission_actions, module_actions, user_sessions).
+     * Required: the existing schema those tables are in. No default.
+     */
+    AUTHZ_DB_SCHEMA: z.string().regex(/^[a-z_][a-z0-9_]{0,62}$/),
+    /**
+     * false when the database is owned by another system (admin_db is managed by the Admin service with
+     * Alembic): this service then never runs its TypeORM migrations against it.
+     */
+    AUTHZ_DB_MIGRATIONS_ENABLED: bool.default('false'),
 
     REDIS_URL: z.string().url(),
     EFFECTIVE_PERMISSION_CACHE_TTL_SECONDS: z.coerce.number().int().min(0).default(60),
 
     ALLOW_INSECURE_LOCALHOST_URIS: bool.default('false'),
     AUDIT_ALLOW_DECISIONS: bool.default('false'),
+    /**
+     * Write audit events to authorization_audit_logs. Set false where that table does not exist (admin_db);
+     * events are then emitted as structured log lines only.
+     */
+    AUDIT_DB_ENABLED: bool.default('false'),
 
     // Bearer authentication: every caller presents an RS256 JWT verified against a JWKS. No API keys.
     /** Issuer of admin user access tokens (Identity Federation). */

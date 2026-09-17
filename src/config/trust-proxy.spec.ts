@@ -5,6 +5,8 @@ const base = {
   AUTHZ_DB_USER: 'u',
   AUTHZ_DB_PASSWORD: 'p',
   AUTHZ_DB_NAME: 'd',
+  AUTHZ_DB_PORT: '5432',
+  AUTHZ_DB_SCHEMA: 's',
   REDIS_URL: 'redis://localhost:6379',
   IDENTITY_ISSUER: 'https://identity.example.com',
   IDENTITY_JWKS_URI: 'https://identity.example.com/.well-known/jwks.json',

@@ -55,7 +55,7 @@ export async function createApp(env: Env = loadEnv()): Promise<NestFastifyApplic
   // lookup) is enforced inside each handler regardless of CORS. No other route gets this treatment.
   fastify.addHook('onRequest', (request, reply, done) => {
     const path = request.url.split('?')[0];
-    const isSessionEndpoint = /^\/(v1\/)?authorization\/session(\/(me|logout|select))?$/.test(path);
+    const isSessionEndpoint = /^\/(v1\/)?authorization\/session(\/(me|logout|select|check))?$/.test(path);
     const origin = request.headers.origin;
     if (isSessionEndpoint && typeof origin === 'string') {
       void reply.header('access-control-allow-origin', origin);

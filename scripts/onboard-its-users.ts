@@ -39,6 +39,11 @@ async function main() {
     },
   });
 
+  // Onboarding creates users; in an externally owned database (admin_db) users already exist and are managed there.
+  if (!env.AUTHZ_DB_MIGRATIONS_ENABLED) {
+    throw new Error(`AUTHZ_DB_MIGRATIONS_ENABLED=false: refusing to create users in ${env.AUTHZ_DB_NAME}, which is managed by another system`);
+  }
+
   const db = new DataSource(buildDataSourceOptions(env));
   await db.initialize();
   const runner = db.createQueryRunner();
