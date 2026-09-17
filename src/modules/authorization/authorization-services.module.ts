@@ -1,12 +1,10 @@
 import { Module } from '@nestjs/common';
 import { AssertionVerifierService } from './services/assertion-verifier.service';
-import { AuthorizationEngine } from './services/authorization.engine';
-import { AuthzCacheService } from './services/authz-cache.service';
 import { LocalSessionService } from './services/local-session.service';
 
-/** Authorization decisions and effective permissions — version-agnostic services, reused by every /vN edge. */
+/** Core assertion verification and the local session over the existing admin_db RBAC tables. */
 @Module({
-  providers: [AuthorizationEngine, AuthzCacheService, AssertionVerifierService, LocalSessionService],
-  exports: [AuthorizationEngine, AuthzCacheService, AssertionVerifierService, LocalSessionService],
+  providers: [AssertionVerifierService, LocalSessionService],
+  exports: [AssertionVerifierService, LocalSessionService],
 })
 export class AuthorizationServicesModule {}

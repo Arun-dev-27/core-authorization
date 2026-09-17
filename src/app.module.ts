@@ -4,47 +4,27 @@ import { AuditModule } from '@core/audit/audit.module';
 import { RedisModule } from '@core/cache/redis.module';
 import { DatabaseModule } from '@core/database/database.module';
 import { HealthModule } from '@core/health/health.module';
-import { ApplicationsModule } from '@modules/applications/applications.module';
 import { AuthModule } from '@modules/auth/auth.module';
 import { AuthorizationModule } from '@modules/authorization/authorization.module';
-import { BusinessUnitsModule } from '@modules/business-units/business-units.module';
-import { ClientsModule } from '@modules/clients/clients.module';
-import { EnvironmentsModule } from '@modules/environments/environments.module';
-import { FederationModule } from '@modules/federation/federation.module';
-import { MeModule } from '@modules/me/me.module';
-import { ModulesModule } from '@modules/modules/modules.module';
-import { RbacModule } from '@modules/rbac/rbac.module';
-import { RolesModule } from '@modules/roles/roles.module';
 import { SigningModule } from '@modules/signing/signing.module';
-import { TenantsModule } from '@modules/tenants/tenants.module';
-import { UsersModule } from '@modules/users/users.module';
-import { UtilitiesModule } from '@modules/utilities/utilities.module';
 
+/**
+ * Authorization over the EXISTING admin_db: a verified core assertion becomes a local session scoped to one of the
+ * user's existing roles, and that session's module/action/tenant permissions are enforced.
+ *
+ * The catalog modules (clients, applications, business units, utilities, environments, modules, roles, users, me,
+ * federation directory) were removed: they read tables the existing admin_db does not contain.
+ */
 @Module({
   imports: [
-    // app-wide infrastructure
     ConfigModule,
     DatabaseModule,
     RedisModule,
     AuditModule,
-    RbacModule,
     AuthModule,
-    SigningModule, // own RS256 key + /.well-known/jwks.json (separate from Identity's keys)
+    SigningModule,
     HealthModule,
-    // Core RBAC: tenants → business units → utilities; modules → permissions; roles; users × roles × scopes
-    TenantsModule,
-    BusinessUnitsModule,
-    UtilitiesModule,
-    ModulesModule,
-    RolesModule,
-    UsersModule,
-    MeModule,
-    // login federation: applications, environments, clients, decisions, internal API for Identity
-    ApplicationsModule,
-    EnvironmentsModule,
-    ClientsModule,
     AuthorizationModule,
-    FederationModule,
   ],
 })
 export class AppModule {}
