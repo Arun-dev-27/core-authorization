@@ -63,13 +63,16 @@ afterAll(async () => {
 });
 
 describe('miqaat_core schema', () => {
-  it('exists next to the unchanged public schema, without login and Non-ITS tables', async () => {
+  it('exists next to the unchanged public schema, with user_sessions but no Non-ITS OTP table', async () => {
     const tables = (await rows<{ table_name: string }>(`SELECT table_name FROM information_schema.tables WHERE table_schema = $1 ORDER BY 1`, [S])).map((r) => r.table_name);
     expect(tables).toEqual([
       'module_actions', 'modules', 'permission_actions', 'platform_settings', 'role_permissions', 'roles',
-      'tenant_core_credentials', 'tenant_domain_credentials', 'tenant_domains', 'tenant_rate_limits', 'tenants', 'user_roles', 'users',
+      'tenant_core_credentials', 'tenant_domain_credentials', 'tenant_domains', 'tenant_rate_limits', 'tenants',
+      'user_roles', 'user_sessions', 'users',
     ]);
-    expect(tables).not.toContain('user_sessions');
+    // user_sessions arrived with MiqaatCoreUserSessions1789700000000, after this spec was written.
+    // login_otp_codes (the Non-ITS email+OTP path) is still deliberately not implemented, so its
+    // presence would mean someone created it by hand outside the migrations.
     expect(tables).not.toContain('login_otp_codes');
     const publicTenants = (await rows<{ column_name: string }>(`SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'tenants'`)).map((r) => r.column_name);
     expect(publicTenants).toContain('tenant_id');
