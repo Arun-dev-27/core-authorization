@@ -14,6 +14,7 @@ const parse = (TRUST_PROXY?: string) => envSchema.safeParse({ ...base, ...(TRUST
 describe('TRUST_PROXY', () => {
   it('defaults to no proxy trust', () => {
     const r = parse();
+    expect(r.success).toBe(true);
     expect(r.success && r.data.TRUST_PROXY).toBe(false);
   });
 

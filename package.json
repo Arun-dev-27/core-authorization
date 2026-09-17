@@ -26,7 +26,8 @@
     "infra:down": "docker compose -f docker/docker-compose.yml --env-file .env down",
     "docker:build": "docker build -f docker/Dockerfile -t miqaat-core-identity-authorization-service:local .",
     "principal:register": "node -r ts-node/register/transpile-only -r tsconfig-paths/register scripts/register-service-principal.ts",
-    "client": "node -r ts-node/register/transpile-only -r tsconfig-paths/register scripts/manage-client.ts"
+    "client": "node -r ts-node/register/transpile-only -r tsconfig-paths/register scripts/manage-client.ts",
+    "onboard": "node -r ts-node/register/transpile-only -r tsconfig-paths/register scripts/onboard-its-users.ts"
   },
   "dependencies": {
     "@fastify/helmet": "^13.0.1",
