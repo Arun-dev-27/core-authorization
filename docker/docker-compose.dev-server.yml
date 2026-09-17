@@ -1,41 +1,29 @@
-# Core Identity Authorization Service on the Miqaat Core DEV server (Lightsail, 3.7.149.74).
+# core-authorization on the Miqaat Core DEV server.
 #
-# Starts NO database and NO Redis: it attaches to the externally-managed
-# `dev_miqaat_core_net` and consumes dev_miqaat_core_rds2 + dev_miqaat_core_redis.
+# Runs the application only, attached to the existing `dev_miqaat_core_net` so it can reach the existing admin
+# database and Redis by their host names. No database container, no migration, no seed: AUTHZ_DB_* in
+# ../.env.dev-server must name the existing database and schema, and the app refuses to start if that schema or any
+# mapped table/column is missing.
 #
-#   docker compose -f docker/docker-compose.dev-server.yml --env-file .env.dev-server up -d --build
+#   docker compose -f docker/docker-compose.dev-server.yml up -d --build
 name: miqaat-authz-dev
 
-x-authz: &authz
-  image: miqaat-core-identity-authorization-service:dev
-  build:
-    context: ..
-    dockerfile: docker/Dockerfile
-  env_file:
-    - ../.env.dev-server
-  networks:
-    - dev_miqaat_core_net
-
 services:
-  authz-migrate:
-    <<: *authz
-    container_name: dev_miqaat_authz_migrate
-    restart: "no"
-    command: ["node", "node_modules/typeorm/cli.js", "migration:run", "-d", "dist/core/database/data-source.js"]
-
   authz:
-    <<: *authz
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: miqaat-core-identity-authorization-service:dev
     container_name: dev_miqaat_authz
-    restart: unless-stopped
-    depends_on:
-      authz-migrate:
-        condition: service_completed_successfully
+    env_file:
+      - ../.env
     ports:
       - "3002:3002"
     volumes:
-      # AUTHZ_SIGNING_KEY_FILE - the authorization-token signing key, generated on first
-      # start. Same reasoning as authn: lose it and every authz+jwt in flight stops verifying.
       - authz-keys:/app/.keys
+    networks:
+      - dev_miqaat_core_net
+    restart: unless-stopped
 
 volumes:
   authz-keys:

@@ -1,36 +1,32 @@
-# Local infrastructure for the Core Identity Authorization Service ONLY.
-# Separate PostgreSQL server from the Authentication DB by design.
+# Development: builds and runs core-authorization ONLY.
+#
+# No PostgreSQL service, no database volume, no migration, no seed, no init script. The app connects to the
+# EXISTING authorization database and schema given in ../.env (AUTHZ_DB_HOST/PORT/NAME/SCHEMA/USER/PASSWORD - all
+# required, no defaults) and reads the existing users, tenants, roles and permissions there. It refuses to start if
+# that schema or any mapped table/column does not already exist.
+#
+#   cp .env.example .env   # fill in the existing database values
+#   docker compose -f docker/docker-compose.yml up -d --build
+#
+# Inside the container "localhost" is the container itself: use the real database / Redis / identity host names
+# (or host.docker.internal for services running on this machine).
 name: miqaat-authz
 
 services:
-  authz-postgres:
-    image: postgres:16-alpine
-    container_name: miqaat-authz-postgres
-    environment:
-      POSTGRES_USER: ${AUTHZ_DB_USER:-miqaat_authz}
-      POSTGRES_PASSWORD: ${AUTHZ_DB_PASSWORD:-change-me-local}
-      POSTGRES_DB: ${AUTHZ_DB_NAME:-miqaat_authz}
+  authz:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: miqaat-core-identity-authorization-service:dev
+    container_name: miqaat-authz
+    env_file:
+      - ../.env
     ports:
-      - "5442:5432"
+      - "3002:3002"
     volumes:
-      - authz-pgdata:/var/lib/postgresql/data
-      - ./postgres-init:/docker-entrypoint-initdb.d:ro
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${AUTHZ_DB_USER:-miqaat_authz} -d ${AUTHZ_DB_NAME:-miqaat_authz}"]
-      interval: 5s
-      timeout: 3s
-      retries: 20
-
-  authz-redis:
-    image: redis:7-alpine
-    container_name: miqaat-authz-redis
-    ports:
-      - "6392:6379"
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 20
+      # AUTHZ_SIGNING_KEY_FILE lives here, so a rebuild does not invalidate issued authorization tokens.
+      - authz-keys:/app/.keys
+    restart: unless-stopped
 
 volumes:
-  authz-pgdata:
+  authz-keys:
